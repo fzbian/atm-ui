@@ -124,8 +124,10 @@ export default function NewTransaction() {
         const saldo = await getSaldoCajaLight();
         const solicitado = Number(monto);
         if (Number.isFinite(solicitado) && Number.isFinite(saldo) && solicitado > saldo) {
+          setOverlayKind('insufficient');
           setOverlayTitle('Saldo insuficiente');
-          setOverlayMessage(`El monto solicitado supera el saldo en caja.\nSolicitado: $${formatMoney(solicitado)} · Saldo actual: $${formatMoney(saldo)}`);
+          setOverlayData({ solicitado, saldo });
+          setOverlayMessage('El monto solicitado supera el saldo disponible en caja.');
           setOverlayOpen(true);
           return; // no abrir confirmación
         }
@@ -527,35 +529,61 @@ export default function NewTransaction() {
       {overlayOpen && overlayKind === 'insufficient' && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4" onClick={() => setOverlayOpen(false)}>
           <div className="w-full max-w-md bg-[var(--card-color)] border border-[var(--border-color)] rounded-2xl shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-[var(--danger-color)] !text-3xl" aria-hidden>error</span>
+            <div className="flex items-start gap-4">
+              <div className="shrink-0 h-12 w-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center">
+                <span className="material-symbols-outlined text-red-400">report</span>
+              </div>
               <div className="flex-1">
-                <h3 className="font-semibold mb-2">{overlayTitle || 'Saldo insuficiente'}</h3>
-                <p className="text-sm text-[var(--text-secondary-color)] mb-4">{overlayMessage || 'El monto solicitado supera el saldo disponible en caja.'}</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--dark-color)]">
-                    <p className="text-xs text-[var(--text-secondary-color)]">Solicitado</p>
-                    <p className="text-base font-semibold text-[var(--danger-color)]">${formatMoney(overlayData?.solicitado ?? monto)}</p>
+                <h3 className="font-semibold mb-1">{overlayTitle || 'Saldo insuficiente'}</h3>
+                <p className="text-sm text-[var(--text-secondary-color)]">{overlayMessage || 'El monto solicitado supera el saldo disponible en caja.'}</p>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl border border-[var(--border-color)] bg-[var(--dark-color)]">
+                    <div className="flex items-center gap-2 text-xs text-[var(--text-secondary-color)]">
+                      <span className="material-symbols-outlined !text-base text-[var(--danger-color)]">request_quote</span>
+                      Solicitado
+                    </div>
+                    <div className="mt-1 text-lg font-bold text-[var(--danger-color)]">${formatMoney(overlayData?.solicitado ?? monto)}</div>
                   </div>
-                  <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--dark-color)]">
-                    <p className="text-xs text-[var(--text-secondary-color)]">Saldo actual</p>
-                    <p className="text-base font-semibold text-[var(--success-color)]">${formatMoney(overlayData?.saldo ?? 0)}</p>
+                  <div className="p-3 rounded-xl border border-[var(--border-color)] bg-[var(--dark-color)]">
+                    <div className="flex items-center gap-2 text-xs text-[var(--text-secondary-color)]">
+                      <span className="material-symbols-outlined !text-base text-[var(--success-color)]">account_balance_wallet</span>
+                      Saldo actual
+                    </div>
+                    <div className="mt-1 text-lg font-bold text-[var(--success-color)]">${formatMoney(overlayData?.saldo ?? 0)}</div>
                   </div>
+                </div>
+                <div className="mt-4 text-xs text-[var(--text-secondary-color)]">
+                  Sugerencia: ajusta el monto al saldo máximo disponible para continuar.
                 </div>
               </div>
             </div>
-            <div className="mt-5 flex gap-3">
+            <div className="mt-5 flex flex-col sm:flex-row gap-3">
               <button
-                className="flex-1 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5"
+                className="flex-1 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5 flex items-center justify-center gap-2"
                 onClick={() => {
                   setOverlayOpen(false);
                   setTimeout(() => montoInputRef.current?.focus(), 50);
                 }}
               >
+                <span className="material-symbols-outlined">edit</span>
                 Editar monto
               </button>
+              {Number.isFinite(Number(overlayData?.saldo)) && (
+                <button
+                  className="flex-1 py-2 rounded-lg bg-[var(--primary-color)] text-white hover:opacity-90 flex items-center justify-center gap-2"
+                  onClick={() => {
+                    const s = Number(overlayData?.saldo) || 0;
+                    setMonto(String(s));
+                    setOverlayOpen(false);
+                    setTimeout(() => montoInputRef.current?.focus(), 50);
+                  }}
+                >
+                  <span className="material-symbols-outlined">done_all</span>
+                  Usar saldo máximo
+                </button>
+              )}
               <button
-                className="flex-1 py-2 rounded-lg bg-[var(--primary-color)] text-white hover:opacity-90"
+                className="w-full sm:w-auto px-4 py-2 rounded-lg text-[var(--text-secondary-color)] hover:bg-white/5 border border-transparent sm:border-[var(--border-color)]"
                 onClick={() => setOverlayOpen(false)}
               >
                 Cerrar
