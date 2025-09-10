@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Header from "../components/Header";
 // import Preloader from "../components/Preloader";
 import ServerDown from "../components/ServerDown";
@@ -33,6 +33,9 @@ export default function NewTransaction() {
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [overlayMessage, setOverlayMessage] = useState("");
   const [overlayTitle, setOverlayTitle] = useState("Completa el formulario");
+  const [overlayKind, setOverlayKind] = useState("info"); // 'info' | 'insufficient'
+  const [overlayData, setOverlayData] = useState(null); // { solicitado, saldo }
+  const montoInputRef = useRef(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [usuarioDisplay, setUsuarioDisplay] = useState("");
@@ -161,10 +164,17 @@ export default function NewTransaction() {
           let data = null;
           try { data = await res.json(); } catch (_) { /* ignore */ }
           const solicitado = data && Number.isFinite(Number(data.monto_solicitado)) ? Number(data.monto_solicitado) : Number(monto);
-          const saldo = data && Number.isFinite(Number(data.saldo_actual)) ? Number(data.saldo_actual) : undefined;
-          const baseMsg = data && data.error ? String(data.error) : 'Saldo insuficiente para realizar el egreso';
-          const det = saldo != null ? `Solicitado: $${formatMoney(solicitado)} · Saldo actual: $${formatMoney(saldo)}` : `Solicitado: $${formatMoney(solicitado)}`;
-          throw new Error(`${baseMsg}\n${det}`);
+          const saldo = data && Number.isFinite(Number(data.saldo_actual)) ? Number(data.saldo_actual) : null;
+          const baseMsg = (data && data.error) ? String(data.error) : 'Saldo insuficiente en caja para realizar el egreso';
+          // Mostrar overlay especial amigable
+          setOverlayKind('insufficient');
+          setOverlayTitle('Saldo insuficiente');
+          setOverlayData({ solicitado, saldo });
+          setOverlayMessage(baseMsg);
+          setProgressOpen(false);
+          setOverlayOpen(true);
+          setSubmitting(false);
+          return; // no continuar
         }
         const txt = await res.text();
         throw new Error(txt || "Error al crear transacción");
@@ -174,8 +184,10 @@ export default function NewTransaction() {
     } catch (e) {
       setErrorSubmit(e.message);
       setProgressOpen(false);
-      setOverlayMessage(e.message || 'Error al crear transacción');
-      setOverlayOpen(true);
+  setOverlayKind('info');
+  setOverlayTitle('Error al crear transacción');
+  setOverlayMessage(e.message || 'Error al crear transacción');
+  setOverlayOpen(true);
     } finally {
       setSubmitting(false);
     }
@@ -380,6 +392,7 @@ export default function NewTransaction() {
                   onChange={(e) => setMonto(e.target.value)}
                   placeholder="0"
                   className="flex-1 bg-transparent outline-none py-2 text-sm text-[var(--text-color)] placeholder:text-[var(--text-secondary-color)]"
+                  ref={montoInputRef}
                 />
               </div>
             </div>
@@ -493,7 +506,7 @@ export default function NewTransaction() {
           </div>
         </div>
       )}
-  {overlayOpen && (
+      {overlayOpen && overlayKind === 'info' && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4" onClick={() => setOverlayOpen(false)}>
           <div className="w-full max-w-md bg-[var(--card-color)] border border-[var(--border-color)] rounded-2xl shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3">
@@ -506,6 +519,46 @@ export default function NewTransaction() {
             <div className="mt-4 flex justify-end">
               <button className="px-4 py-2 rounded-lg border border-[var(--border-color)] hover:bg-white/5" onClick={() => setOverlayOpen(false)}>
                 Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {overlayOpen && overlayKind === 'insufficient' && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4" onClick={() => setOverlayOpen(false)}>
+          <div className="w-full max-w-md bg-[var(--card-color)] border border-[var(--border-color)] rounded-2xl shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[var(--danger-color)] !text-3xl" aria-hidden>error</span>
+              <div className="flex-1">
+                <h3 className="font-semibold mb-2">{overlayTitle || 'Saldo insuficiente'}</h3>
+                <p className="text-sm text-[var(--text-secondary-color)] mb-4">{overlayMessage || 'El monto solicitado supera el saldo disponible en caja.'}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--dark-color)]">
+                    <p className="text-xs text-[var(--text-secondary-color)]">Solicitado</p>
+                    <p className="text-base font-semibold text-[var(--danger-color)]">${formatMoney(overlayData?.solicitado ?? monto)}</p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--dark-color)]">
+                    <p className="text-xs text-[var(--text-secondary-color)]">Saldo actual</p>
+                    <p className="text-base font-semibold text-[var(--success-color)]">${formatMoney(overlayData?.saldo ?? 0)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                className="flex-1 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5"
+                onClick={() => {
+                  setOverlayOpen(false);
+                  setTimeout(() => montoInputRef.current?.focus(), 50);
+                }}
+              >
+                Editar monto
+              </button>
+              <button
+                className="flex-1 py-2 rounded-lg bg-[var(--primary-color)] text-white hover:opacity-90"
+                onClick={() => setOverlayOpen(false)}
+              >
+                Cerrar
               </button>
             </div>
           </div>
