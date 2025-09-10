@@ -536,20 +536,20 @@ export default function NewTransaction() {
               <div className="flex-1">
                 <h3 className="font-semibold mb-1">{overlayTitle || 'Saldo insuficiente'}</h3>
                 <p className="text-sm text-[var(--text-secondary-color)]">{overlayMessage || 'El monto solicitado supera el saldo disponible en caja.'}</p>
-                <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="p-3 rounded-xl border border-[var(--border-color)] bg-[var(--dark-color)]">
                     <div className="flex items-center gap-2 text-xs text-[var(--text-secondary-color)]">
                       <span className="material-symbols-outlined !text-base text-[var(--danger-color)]">request_quote</span>
                       Solicitado
                     </div>
-                    <div className="mt-1 text-lg font-bold text-[var(--danger-color)]">${formatMoney(overlayData?.solicitado ?? monto)}</div>
+          <div className="mt-1 text-lg font-bold text-[var(--danger-color)] break-words">${formatMoney(overlayData?.solicitado ?? monto)}</div>
                   </div>
                   <div className="p-3 rounded-xl border border-[var(--border-color)] bg-[var(--dark-color)]">
                     <div className="flex items-center gap-2 text-xs text-[var(--text-secondary-color)]">
                       <span className="material-symbols-outlined !text-base text-[var(--success-color)]">account_balance_wallet</span>
                       Saldo actual
                     </div>
-                    <div className="mt-1 text-lg font-bold text-[var(--success-color)]">${formatMoney(overlayData?.saldo ?? 0)}</div>
+          <div className="mt-1 text-lg font-bold text-[var(--success-color)] break-words">${formatMoney(overlayData?.saldo ?? 0)}</div>
                   </div>
                 </div>
                 <div className="mt-4 text-xs text-[var(--text-secondary-color)]">
