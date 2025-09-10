@@ -4,7 +4,7 @@ import Header from "../components/Header";
 import ServerDown from "../components/ServerDown";
 import BottomNav from "../components/BottomNav";
 import { useLocation, useNavigate } from "react-router-dom";
-import { apiFetch, pingServer } from "../api";
+import { apiFetch, pingServer, getSaldoCajaLight } from "../api";
 import useTitle from "../useTitle";
 import useTimeout from "../useTimeout";
 import { getSessionUsername, getUsers, isAuthenticated } from "../auth";
@@ -32,6 +32,7 @@ export default function NewTransaction() {
   const [errorSubmit, setErrorSubmit] = useState(null);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [overlayMessage, setOverlayMessage] = useState("");
+  const [overlayTitle, setOverlayTitle] = useState("Completa el formulario");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [usuarioDisplay, setUsuarioDisplay] = useState("");
@@ -109,9 +110,25 @@ export default function NewTransaction() {
       if (!descripcion.trim()) missing.push("Descripción");
       if (!(Number(monto) > 0)) missing.push("Monto (> 0)");
       if (!categoriaId) missing.push("Categoría");
+      setOverlayTitle('Completa el formulario');
       setOverlayMessage(`Por favor completa: ${missing.join(', ')}.`);
       setOverlayOpen(true);
       return;
+    }
+    // Validación previa de saldo para EGRESO
+    if (tipo === 'EGRESO') {
+      try {
+        const saldo = await getSaldoCajaLight();
+        const solicitado = Number(monto);
+        if (Number.isFinite(solicitado) && Number.isFinite(saldo) && solicitado > saldo) {
+          setOverlayTitle('Saldo insuficiente');
+          setOverlayMessage(`El monto solicitado supera el saldo en caja.\nSolicitado: $${formatMoney(solicitado)} · Saldo actual: $${formatMoney(saldo)}`);
+          setOverlayOpen(true);
+          return; // no abrir confirmación
+        }
+      } catch (_) {
+        // Si falla la validación previa, continuamos y el backend protegerá con 409
+      }
     }
     // Abrir confirmación con resumen
     setConfirmOpen(true);
@@ -139,6 +156,16 @@ export default function NewTransaction() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
+        if (res.status === 409) {
+          // Saldo insuficiente u otra precondición del servidor
+          let data = null;
+          try { data = await res.json(); } catch (_) { /* ignore */ }
+          const solicitado = data && Number.isFinite(Number(data.monto_solicitado)) ? Number(data.monto_solicitado) : Number(monto);
+          const saldo = data && Number.isFinite(Number(data.saldo_actual)) ? Number(data.saldo_actual) : undefined;
+          const baseMsg = data && data.error ? String(data.error) : 'Saldo insuficiente para realizar el egreso';
+          const det = saldo != null ? `Solicitado: $${formatMoney(solicitado)} · Saldo actual: $${formatMoney(saldo)}` : `Solicitado: $${formatMoney(solicitado)}`;
+          throw new Error(`${baseMsg}\n${det}`);
+        }
         const txt = await res.text();
         throw new Error(txt || "Error al crear transacción");
       }
@@ -466,14 +493,14 @@ export default function NewTransaction() {
           </div>
         </div>
       )}
-      {overlayOpen && (
+  {overlayOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4" onClick={() => setOverlayOpen(false)}>
           <div className="w-full max-w-md bg-[var(--card-color)] border border-[var(--border-color)] rounded-2xl shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3">
               <span className="material-symbols-outlined text-amber-400 !text-3xl" aria-hidden>warning</span>
               <div className="flex-1">
-                <h3 className="font-semibold mb-1">Completa el formulario</h3>
-                <p className="text-sm text-[var(--text-secondary-color)]">{overlayMessage || 'Debes ingresar todos los campos requeridos antes de guardar.'}</p>
+        <h3 className="font-semibold mb-1">{overlayTitle || 'Aviso'}</h3>
+        <p className="text-sm text-[var(--text-secondary-color)] whitespace-pre-line">{overlayMessage || 'Debes ingresar todos los campos requeridos antes de guardar.'}</p>
               </div>
             </div>
             <div className="mt-4 flex justify-end">

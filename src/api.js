@@ -43,7 +43,7 @@ export async function pingServer() {
   await loadConfig();
   const base = apiBase || '';
   const root = base ? base.replace(/\/$/, '') : '';
-  const candidates = ['/health', '/api/caja', '/'];
+  const candidates = ['/health', '/api/caja?solo_caja=true', '/'];
   for (const p of candidates) {
     const url = root ? root + p : p;
     try {
@@ -54,4 +54,18 @@ export async function pingServer() {
     }
   }
   return false;
+}
+
+// Obtiene solo el saldo de caja de forma ligera; devuelve número o null
+export async function getSaldoCajaLight() {
+  try {
+    const res = await apiFetch('/api/caja?solo_caja=true');
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    if (!data || typeof data !== 'object') return null;
+    const n = Number(data.saldo_caja ?? data.saldo ?? data.total ?? data.saldo_actual);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
 }
