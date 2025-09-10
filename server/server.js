@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 8081; // separate port from CRA dev
 const HOST = process.env.HOST || '0.0.0.0';
 const API_BASE = (process.env.API_BASE || 'http://dc0084cs0gwkck4c4g4kcws0.143.198.70.11.sslip.io').replace(/\/$/, '');
 const FORCE_HTTP = String(process.env.FORCE_HTTP || 'false').toLowerCase() === 'true';
+const FORCE_HTTPS = String(process.env.FORCE_HTTPS || 'false').toLowerCase() === 'true';
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'db.sqlite');
 
 app.use(bodyParser.json());
@@ -26,11 +27,27 @@ app.use((req, res, next) => {
 // Health check sencillo para orquestadores (Coolify)
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// Si se configura FORCE_HTTP, redirige cualquier request HTTPS a HTTP (requiere trust proxy)
-if (FORCE_HTTP) {
+// Activar trust proxy si forzamos algún protocolo
+if (FORCE_HTTP || FORCE_HTTPS) {
   app.enable('trust proxy');
+}
+
+// Si se configura FORCE_HTTPS, redirige cualquier request HTTP a HTTPS
+if (FORCE_HTTPS) {
   app.use((req, res, next) => {
-    if (req.secure) {
+    const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+    if (proto !== 'https') {
+      const host = req.headers['x-forwarded-host'] || req.headers.host;
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+      return res.redirect(`https://${host}${req.url}`);
+    }
+    next();
+  });
+} else if (FORCE_HTTP) {
+  // Si se configura FORCE_HTTP (y NO FORCE_HTTPS), redirige HTTPS a HTTP
+  app.use((req, res, next) => {
+    const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+    if (proto === 'https') {
       const host = req.headers['x-forwarded-host'] || req.headers.host;
       return res.redirect(`http://${host}${req.url}`);
     }

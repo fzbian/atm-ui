@@ -10,7 +10,7 @@ services:
       - PORT=8082
       - DB_PATH=/data/db.sqlite
       - HOST=0.0.0.0
-      - FORCE_HTTP=true
+      - FORCE_HTTPS=true
     volumes:
       - db-data:/data
     restart: unless-stopped
