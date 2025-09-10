@@ -10,6 +10,7 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 8081; // separate port from CRA dev
 const HOST = process.env.HOST || '0.0.0.0';
+const API_BASE = (process.env.API_BASE || 'http://dc0084cs0gwkck4c4g4kcws0.143.198.70.11.sslip.io').replace(/\/$/, '');
 const FORCE_HTTP = String(process.env.FORCE_HTTP || 'false').toLowerCase() === 'true';
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'db.sqlite');
 
@@ -36,6 +37,38 @@ if (FORCE_HTTP) {
     next();
   });
 }
+
+// Proxy ligero para /api/* hacia API_BASE para evitar CORS en el navegador
+app.use('/api', async (req, res) => {
+  try {
+    const targetUrl = API_BASE + req.originalUrl; // mantiene /api/...
+    const init = {
+      method: req.method,
+      headers: {
+        // Propaga content-type si existe
+        ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
+      },
+    };
+    if (!['GET', 'HEAD'].includes(req.method)) {
+      // bodyParser.json ya parseó; debemos reenviar como string si es JSON
+      if (req.is('application/json') && typeof req.body === 'object') {
+        init.body = JSON.stringify(req.body);
+      } else if (typeof req.body === 'string') {
+        init.body = req.body;
+      } else {
+        init.body = undefined;
+      }
+    }
+    const upstream = await fetch(targetUrl, init);
+    const contentType = upstream.headers.get('content-type') || 'application/json; charset=utf-8';
+    res.status(upstream.status);
+    res.setHeader('content-type', contentType);
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.end(buf);
+  } catch (e) {
+    res.status(502).json({ error: 'Bad Gateway', detail: String(e && e.message || e) });
+  }
+});
 
 // Ensure DB directory and file exist
 try {
