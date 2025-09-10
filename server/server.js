@@ -87,6 +87,17 @@ app.use('/api', async (req, res) => {
   }
 });
 
+// Config del cliente: permitir sobreescribir /config.json con envs en runtime
+app.get('/config.json', (_req, res, next) => {
+  try {
+    const clientApi = (process.env.CLIENT_API_BASE || process.env.API_BASE || '').replace(/\/$/, '');
+    if (clientApi) {
+      return res.json({ apiBase: clientApi + '/' });
+    }
+  } catch (_) {}
+  next();
+});
+
 // Ensure DB directory and file exist
 try {
   const dir = path.dirname(DB_PATH);

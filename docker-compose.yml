@@ -11,6 +11,8 @@ services:
       - DB_PATH=/data/db.sqlite
       - HOST=0.0.0.0
       - FORCE_HTTPS=true
+      - API_BASE=https://atm-api.chinatownlogistic.com
+      - CLIENT_API_BASE=https://atm-api.chinatownlogistic.com
     volumes:
       - db-data:/data
     restart: unless-stopped
