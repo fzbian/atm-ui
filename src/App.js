@@ -1,25 +1,44 @@
-import logo from './logo.svg';
-import './App.css';
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import Dashboard from "./views/Dashboard";
+import Movements from "./views/Movements";
+import NewTransaction from "./views/NewTransaction";
+import Wallet from "./views/Wallet";
+import Reports from "./views/Reports";
+import Login from './views/Login';
+import { isAuthenticated, isAdmin } from './auth';
+import AdminUsers from './views/AdminUsers';
+import AdminCategories from './views/AdminCategories';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Routes>
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+      <Route path="/movements" element={<RequireAuth><Movements /></RequireAuth>} />
+      <Route path="/new" element={<RequireAuth><NewTransaction /></RequireAuth>} />
+      <Route path="/wallet" element={<RequireAuth><Wallet /></RequireAuth>} />
+      <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
+      <Route path="/admin/users" element={<RequireAuth><RequireDev><AdminUsers /></RequireDev></RequireAuth>} />
+      <Route path="/admin/categories" element={<RequireAuth><RequireDev><AdminCategories /></RequireDev></RequireAuth>} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   );
 }
 
 export default App;
+
+function RequireAuth({ children }) {
+  const location = useLocation();
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return children;
+}
+
+function RequireDev({ children }) {
+  if (!isAdmin()) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
