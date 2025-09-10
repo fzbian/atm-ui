@@ -11,9 +11,10 @@
   "sqlite3": "^5.1.7"
   },
   "scripts": {
-  "start": "react-scripts start",
+  "start": "node server/server.js",
+  "start:client": "react-scripts start",
   "start:server": "node server/server.js",
-  "dev": "concurrently -k \"npm:start\" \"npm:start:server\"",
+  "dev": "concurrently -k \"npm:start:client\" \"npm:start:server\"",
   "start:prod": "npm run build && npm run start:server",
     "build": "react-scripts build",
     "test": "echo 'tests deshabilitados' && exit 0",

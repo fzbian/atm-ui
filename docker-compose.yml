@@ -9,6 +9,7 @@ services:
       - NODE_ENV=production
       - PORT=8082
       - DB_PATH=/data/db.sqlite
+      - HOST=0.0.0.0
     volumes:
       - db-data:/data
     restart: unless-stopped
