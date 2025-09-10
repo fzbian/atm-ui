@@ -559,7 +559,7 @@ export default function NewTransaction() {
             </div>
             <div className="mt-5 flex flex-col sm:flex-row gap-3">
               <button
-                className="flex-1 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5 flex items-center justify-center gap-2"
+                className="flex-1 py-2 rounded-lg bg-[var(--primary-color)] text-white hover:opacity-90 flex items-center justify-center gap-2"
                 onClick={() => {
                   setOverlayOpen(false);
                   setTimeout(() => montoInputRef.current?.focus(), 50);
@@ -567,26 +567,6 @@ export default function NewTransaction() {
               >
                 <span className="material-symbols-outlined">edit</span>
                 Editar monto
-              </button>
-              {Number.isFinite(Number(overlayData?.saldo)) && (
-                <button
-                  className="flex-1 py-2 rounded-lg bg-[var(--primary-color)] text-white hover:opacity-90 flex items-center justify-center gap-2"
-                  onClick={() => {
-                    const s = Number(overlayData?.saldo) || 0;
-                    setMonto(String(s));
-                    setOverlayOpen(false);
-                    setTimeout(() => montoInputRef.current?.focus(), 50);
-                  }}
-                >
-                  <span className="material-symbols-outlined">done_all</span>
-                  Usar saldo máximo
-                </button>
-              )}
-              <button
-                className="w-full sm:w-auto px-4 py-2 rounded-lg text-[var(--text-secondary-color)] hover:bg-white/5 border border-transparent sm:border-[var(--border-color)]"
-                onClick={() => setOverlayOpen(false)}
-              >
-                Cerrar
               </button>
             </div>
           </div>
