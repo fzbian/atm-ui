@@ -9,6 +9,7 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 8081; // separate port from CRA dev
+const HOST = process.env.HOST || '0.0.0.0';
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'db.sqlite');
 
 app.use(bodyParser.json());
@@ -19,6 +20,9 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
+
+// Health check sencillo para orquestadores (Coolify)
+app.get('/health', (_req, res) => res.json({ ok: true }));
 
 // Ensure DB directory and file exist
 try {
@@ -169,12 +173,13 @@ try {
     app.use(express.static(buildPath));
     // Fallback para rutas del SPA (excluye endpoints de API)
     app.get('*', (req, res, next) => {
-      if (req.path.startsWith('/usuarios') || req.path.startsWith('/login')) return next();
+  // Sólo excluimos rutas de API reales. GET /login es una ruta del SPA.
+  if (req.path.startsWith('/usuarios')) return next();
       return res.sendFile(path.join(buildPath, 'index.html'));
     });
   }
 } catch (_) { /* noop */ }
 
-app.listen(PORT, () => {
-  console.log(`Users server running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Users server running on http://${HOST}:${PORT}`);
 });
