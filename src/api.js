@@ -29,12 +29,10 @@ export function setApiBase(base) {
 export async function pingServer() {
   await loadConfig();
   const base = apiBase || '';
-  const url = base ? base.replace(/\/$/, '') + '/' : '/';
+  const url = base ? base.replace(/\/$/, '') + '/health' : '/health';
   try {
     const res = await fetch(url, { cache: 'no-cache' });
-    if (!res.ok) return false;
-    const data = await res.json().catch(() => null);
-    return data && data.status === 'ok';
+    return res.ok;
   } catch {
     return false;
   }

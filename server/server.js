@@ -10,6 +10,7 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 8081; // separate port from CRA dev
 const HOST = process.env.HOST || '0.0.0.0';
+const FORCE_HTTP = String(process.env.FORCE_HTTP || 'false').toLowerCase() === 'true';
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'db.sqlite');
 
 app.use(bodyParser.json());
@@ -23,6 +24,18 @@ app.use((req, res, next) => {
 
 // Health check sencillo para orquestadores (Coolify)
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// Si se configura FORCE_HTTP, redirige cualquier request HTTPS a HTTP (requiere trust proxy)
+if (FORCE_HTTP) {
+  app.enable('trust proxy');
+  app.use((req, res, next) => {
+    if (req.secure) {
+      const host = req.headers['x-forwarded-host'] || req.headers.host;
+      return res.redirect(`http://${host}${req.url}`);
+    }
+    next();
+  });
+}
 
 // Ensure DB directory and file exist
 try {
