@@ -16,15 +16,18 @@ async function loadConfig() {
 export async function apiFetch(path, options) {
   await loadConfig();
   const base = apiBase || '';
-  const url = base
-    ? base.replace(/\/$/, '') + (path.startsWith('/') ? path : '/' + path)
-    : path;
+  const isAbsolute = typeof path === 'string' && /^(?:https?:)?\/\//i.test(path);
+  const p = typeof path === 'string' ? (path.startsWith('/') ? path : '/' + path) : String(path || '');
+  // Rutas locales servidas por nuestro propio server (no deben usar apiBase remoto)
+  const isLocalService = /^\/(usuarios|login|config\.json)(?:\/|$)/i.test(p);
+  const shouldUseBase = base && !isAbsolute && !isLocalService;
+  const url = shouldUseBase ? base.replace(/\/$/, '') + p : p;
   try {
     return await fetch(url, options);
   } catch (e) {
     // Fallback: si hay base remota y falla (CORS/red), reintenta contra mismo origen
-    if (base && path) {
-      const rel = path.startsWith('/') ? path : '/' + path;
+    if (shouldUseBase && p) {
+      const rel = p;
       try {
         return await fetch(rel, options);
       } catch (_) {

@@ -1,4 +1,5 @@
 // Autenticación basada en usuarios del servidor local (SQLite via /usuarios)
+import { apiFetch } from './api';
 
 const SESSION_KEY = 'auth_session_v1';
 
@@ -8,7 +9,7 @@ let usersCache = null; // { users: Array<{ username, displayName?, salt?, pinHas
 
 export async function getUsers(force = false) {
   if (usersCache && !force) return usersCache.users || [];
-  const res = await fetch('/usuarios', { cache: 'no-cache' });
+  const res = await apiFetch('/usuarios', { cache: 'no-cache' });
   if (!res.ok) throw new Error(await res.text().catch(()=> 'No se pudo cargar usuarios'));
   const data = await res.json();
   const users = Array.isArray(data) ? data : [];
@@ -18,7 +19,7 @@ export async function getUsers(force = false) {
 
 export async function login(username, pin) {
   if (!username || !pin) throw new Error('Usuario y PIN son requeridos');
-  const res = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, pin }) });
+  const res = await apiFetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, pin }) });
   if (!res.ok) throw new Error(await res.text().catch(()=> 'No se pudo iniciar sesión'));
   const data = await res.json();
   localStorage.setItem(SESSION_KEY, JSON.stringify({ username: data.username, ts: Date.now(), displayName: data.displayName, role: data.role }));

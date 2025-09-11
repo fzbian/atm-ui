@@ -1,8 +1,9 @@
 import { getSessionUsername } from './auth';
+import { apiFetch } from './api';
 
-// Users via local SQLite server (same origin proxy or different port)
+// Users API: siempre vía apiFetch para respetar apiBase de config.json
 async function req(path, options) {
-  const res = await fetch(`/usuarios${path || ''}`, options);
+  const res = await apiFetch(`/usuarios${path || ''}`, options);
   if (!res.ok) throw new Error(await res.text().catch(()=> res.statusText || 'error'));
   return res;
 }
