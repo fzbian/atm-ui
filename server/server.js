@@ -24,6 +24,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Fuerza no-cache para archivos base del shell (evita usuarios pegados a versiones viejas)
+app.use((req, res, next) => {
+  const p = req.path || '';
+  if (p === '/index.html' || p === '/manifest.json' || p === '/config.json') {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+
 // Health check sencillo para orquestadores (Coolify)
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
@@ -95,6 +106,9 @@ app.get('/config.json', (_req, res, next) => {
     // API_BASE es para el proxy del servidor y NO debe forzar al cliente a llamar cross-origin.
     const clientApi = (process.env.CLIENT_API_BASE || '').replace(/\/$/, '');
     if (clientApi) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       return res.json({ apiBase: clientApi + '/' });
     }
   } catch (_) {}
@@ -247,11 +261,28 @@ app.post('/login', async (req, res) => {
 try {
   const buildPath = path.resolve(__dirname, '..', 'build');
   if (fs.existsSync(buildPath)) {
-    app.use(express.static(buildPath));
+    app.use(express.static(buildPath, {
+      // Cache largo para assets con hash; index.html/manifest/config ya se marcan como no-cache por middleware
+      setHeaders: (res, filePath) => {
+        const ext = path.extname(filePath);
+        const base = path.basename(filePath);
+        if (base === 'index.html' || base === 'manifest.json' || base === 'config.json') {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        } else if (/\.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|avif|woff|woff2|ttf|map)$/i.test(ext)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      }
+    }));
     // Fallback para rutas del SPA (excluye endpoints de API)
     app.get('*', (req, res, next) => {
   // Sólo excluimos rutas de API reales. GET /login es una ruta del SPA.
   if (req.path.startsWith('/usuarios')) return next();
+      // Asegurar que el HTML del shell no se cachee
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       return res.sendFile(path.join(buildPath, 'index.html'));
     });
   }
