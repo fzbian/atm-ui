@@ -4,7 +4,7 @@ import Header from "../components/Header";
 import ServerDown from "../components/ServerDown";
 import BottomNav from "../components/BottomNav";
 import { useLocation, useNavigate } from "react-router-dom";
-import { apiFetch, pingServer, getSaldoCajaLight } from "../api";
+import { apiFetch, pingServer } from "../api";
 import useTitle from "../useTitle";
 import useTimeout from "../useTimeout";
 import { getSessionUsername, getUsers, isAuthenticated } from "../auth";
