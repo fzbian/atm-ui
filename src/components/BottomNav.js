@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function BottomNav({ onAddIncome, onAddExpense, onCashout, onHome, onReports, onMovements, onWallet, active = "home" }) {
+export default function BottomNav({ onAddIncome, onAddExpense, onCashout, onCashoutBank, onHome, onReports, onMovements, onWallet, active = "home" }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -55,6 +55,18 @@ export default function BottomNav({ onAddIncome, onAddExpense, onCashout, onHome
               >
                 <span className="material-symbols-outlined !text-white">point_of_sale</span>
                 <span className="text-base font-semibold">Retirar efectivo en punto</span>
+              </button>
+
+              {/* Acción nueva: Retirar dinero de banco */}
+              <button
+                className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--background-color)] transition-colors duration-150 hover:bg-white/5 active:scale-[0.98]"
+                onClick={() => {
+                  onCashoutBank && onCashoutBank();
+                  setOpen(false);
+                }}
+              >
+                <span className="material-symbols-outlined">account_balance</span>
+                <span className="text-base font-medium">Retirar dinero de banco</span>
               </button>
             </div>
           </div>

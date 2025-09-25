@@ -249,6 +249,7 @@ export default function CashoutPOS() {
         onAddIncome={() => navigate('/new?tipo=INGRESO')}
         onAddExpense={() => navigate('/new?tipo=EGRESO')}
         onCashout={() => {}}
+        onCashoutBank={() => navigate('/cashout-bank')}
         active={null}
       />
     </div>

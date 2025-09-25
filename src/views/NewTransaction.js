@@ -237,6 +237,7 @@ export default function NewTransaction() {
             onAddIncome={() => setTipo('INGRESO')}
             onAddExpense={() => setTipo('EGRESO')}
             onCashout={() => navigate('/cashout')}
+            onCashoutBank={() => navigate('/cashout-bank')}
             active="home"
           />
         </>
@@ -276,6 +277,7 @@ export default function NewTransaction() {
             onAddIncome={() => setTipo('INGRESO')}
             onAddExpense={() => setTipo('EGRESO')}
             onCashout={() => navigate('/cashout')}
+            onCashoutBank={() => navigate('/cashout-bank')}
             active="home"
           />
         </>
@@ -295,6 +297,7 @@ export default function NewTransaction() {
             onAddIncome={() => setTipo('INGRESO')}
             onAddExpense={() => setTipo('EGRESO')}
             onCashout={() => navigate('/cashout')}
+            onCashoutBank={() => navigate('/cashout-bank')}
             active="home"
           />
         </>
@@ -484,6 +487,7 @@ export default function NewTransaction() {
             onReports={() => navigate('/reports')}
             onAddIncome={() => setTipo('INGRESO')}
             onAddExpense={() => setTipo('EGRESO')}
+            onCashoutBank={() => navigate('/cashout-bank')}
             active="home"
           />
         </>

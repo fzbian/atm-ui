@@ -1009,6 +1009,7 @@ export default function Movements() {
         onAddIncome={() => navigate('/new?tipo=INGRESO')}
         onAddExpense={() => navigate('/new?tipo=EGRESO')}
         onCashout={() => navigate('/cashout')}
+        onCashoutBank={() => navigate('/cashout-bank')}
         active="movs"
       />
     </div>

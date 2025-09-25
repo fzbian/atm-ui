@@ -9,6 +9,7 @@ import { isAuthenticated, isAdmin } from './auth';
 import AdminUsers from './views/AdminUsers';
 import AdminCategories from './views/AdminCategories';
 import CashoutPOS from './views/CashoutPOS';
+import BankWithdrawal from './views/BankWithdrawal';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
       <Route path="/new" element={<RequireAuth><NewTransaction /></RequireAuth>} />
       <Route path="/wallet" element={<RequireAuth><Wallet /></RequireAuth>} />
   <Route path="/cashout" element={<RequireAuth><CashoutPOS /></RequireAuth>} />
+      <Route path="/cashout-bank" element={<RequireAuth><BankWithdrawal /></RequireAuth>} />
       <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
       <Route path="/admin/users" element={<RequireAuth><RequireDev><AdminUsers /></RequireDev></RequireAuth>} />
       <Route path="/admin/categories" element={<RequireAuth><RequireDev><AdminCategories /></RequireDev></RequireAuth>} />

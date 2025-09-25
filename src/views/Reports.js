@@ -285,20 +285,33 @@ export default function Reports() {
           setChecking(false);
         }} />
       ) : checking ? (
-        <main className="flex-1 p-6 space-y-6 pb-[calc(env(safe-area-inset-bottom)+6rem)] view-enter view-enter-active">
-          <section className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4 animate-pulse">
-            <div className="h-4 w-32 bg-white/10 rounded mb-3" />
-            <div className="h-24 w-full bg-white/10 rounded" />
-          </section>
-          <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4 animate-pulse">
-                <div className="h-3 w-20 bg-white/10 rounded mb-2" />
-                <div className="h-6 w-24 bg-white/10 rounded" />
-              </div>
-            ))}
-          </section>
-        </main>
+        <>
+          <main className="flex-1 p-6 space-y-6 pb-[calc(env(safe-area-inset-bottom)+6rem)] view-enter view-enter-active">
+            <section className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4 animate-pulse">
+              <div className="h-4 w-32 bg-white/10 rounded mb-3" />
+              <div className="h-24 w-full bg-white/10 rounded" />
+            </section>
+            <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4 animate-pulse">
+                  <div className="h-3 w-20 bg-white/10 rounded mb-2" />
+                  <div className="h-6 w-24 bg-white/10 rounded" />
+                </div>
+              ))}
+            </section>
+          </main>
+          <BottomNav
+            onHome={() => navigate('/dashboard')}
+            onMovements={() => navigate('/movements')}
+            onWallet={() => navigate('/wallet')}
+            onReports={() => navigate('/reports')}
+            onAddIncome={() => navigate('/new?tipo=INGRESO')}
+            onAddExpense={() => navigate('/new?tipo=EGRESO')}
+            onCashout={() => navigate('/cashout')}
+            onCashoutBank={() => navigate('/cashout-bank')}
+            active="reports"
+          />
+        </>
       ) : serverOk === false ? (
         <>
           <ServerDown onRetry={async () => {
@@ -315,6 +328,7 @@ export default function Reports() {
             onAddIncome={() => navigate('/new?tipo=INGRESO')}
             onAddExpense={() => navigate('/new?tipo=EGRESO')}
             onCashout={() => navigate('/cashout')}
+             onCashoutBank={() => navigate('/cashout-bank')}
             active="reports"
           />
         </>

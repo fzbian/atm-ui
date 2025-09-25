@@ -140,6 +140,7 @@ export default function AdminUsers() {
         onAddIncome={() => navigate('/new?tipo=INGRESO')}
         onAddExpense={() => navigate('/new?tipo=EGRESO')}
         onCashout={() => navigate('/cashout')}
+        onCashoutBank={() => navigate('/cashout-bank')}
         active={null}
       />
 
