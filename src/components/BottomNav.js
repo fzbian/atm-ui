@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function BottomNav({ onAddIncome, onAddExpense, onHome, onReports, onMovements, onWallet, active = "home" }) {
+export default function BottomNav({ onAddIncome, onAddExpense, onCashout, onHome, onReports, onMovements, onWallet, active = "home" }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -40,6 +40,21 @@ export default function BottomNav({ onAddIncome, onAddExpense, onHome, onReports
               >
                 <span className="material-symbols-outlined text-[var(--danger-color)]">arrow_downward</span>
                 <span className="text-base font-medium text-[var(--text-color)]">Registrar Egreso</span>
+              </button>
+
+              {/* Separador */}
+              <div className="h-px bg-[var(--border-color)] my-1" />
+
+              {/* Acción nueva: Retirar efectivo en punto */}
+              <button
+                className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border border-transparent bg-[#2563eb] text-white transition-colors duration-150 hover:brightness-110 active:scale-[0.98]"
+                onClick={() => {
+                  onCashout && onCashout();
+                  setOpen(false);
+                }}
+              >
+                <span className="material-symbols-outlined !text-white">point_of_sale</span>
+                <span className="text-base font-semibold">Retirar efectivo en punto</span>
               </button>
             </div>
           </div>

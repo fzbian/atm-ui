@@ -24,6 +24,7 @@ export default function Wallet() {
   onReports={() => navigate('/reports')}
         onAddIncome={() => navigate('/new?tipo=INGRESO')}
         onAddExpense={() => navigate('/new?tipo=EGRESO')}
+        onCashout={() => navigate('/cashout')}
         active="wallet"
       />
     </div>

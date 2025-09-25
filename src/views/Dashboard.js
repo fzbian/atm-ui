@@ -5,6 +5,7 @@ import ServerDown from "../components/ServerDown";
 import BottomNav from "../components/BottomNav";
 import { useNavigate } from "react-router-dom";
 import { apiFetch, pingServer } from "../api";
+import { formatCLP } from "../formatMoney";
 import { getUsers, getSessionUsername } from "../auth";
 import useTitle from "../useTitle";
 import { formatDateTimeCO } from "../dateFormat";
@@ -225,6 +226,7 @@ export default function Dashboard() {
           onReports={() => navigate('/reports')}
           onAddIncome={() => navigate('/new?tipo=INGRESO')}
           onAddExpense={() => navigate('/new?tipo=EGRESO')}
+          onCashout={() => navigate('/cashout')}
           active="home"
         />
       </div>
@@ -251,6 +253,7 @@ export default function Dashboard() {
           onReports={() => navigate('/reports')}
           onAddIncome={() => navigate('/new?tipo=INGRESO')}
           onAddExpense={() => navigate('/new?tipo=EGRESO')}
+          onCashout={() => navigate('/cashout')}
           active="home"
         />
       </div>
@@ -314,19 +317,19 @@ export default function Dashboard() {
         </section>
 
 
-        {/* Tarjeta secundaria: Caja Fuerte */}
+        {/* Cajas: Efectivo y Cuenta bancaria */}
         <section className="bg-[var(--card-color)] rounded-lg p-4 border border-[var(--border-color)] shadow">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-bold flex items-center gap-2">
               <span className="material-symbols-outlined" aria-hidden>
-                lock
+                account_balance_wallet
               </span>
-              Caja Fuerte
+              Cajas
             </h2>
             <button
               type="button"
               onClick={() => setShowCajaFuerte(v => !v)}
-              aria-label={showCajaFuerte ? 'Ocultar caja fuerte' : 'Mostrar caja fuerte'}
+              aria-label={showCajaFuerte ? 'Ocultar montos de cajas' : 'Mostrar montos de cajas'}
               className="p-2 rounded-lg hover:bg-white/5"
             >
               <span className="material-symbols-outlined">{showCajaFuerte ? 'visibility' : 'visibility_off'}</span>
@@ -336,17 +339,58 @@ export default function Dashboard() {
             timedOutCaja ? (
               <ServerDown onRetry={reloadCaja} />
             ) : (
-              <div className="animate-pulse space-y-2">
-                <div className="h-6 w-40 bg-white/10 rounded" />
-                <div className="h-5 w-24 bg-white/10 rounded" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-pulse">
+                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--dark-color)]/40 p-4">
+                  <div className="h-5 w-24 bg-white/10 rounded mb-3" />
+                  <div className="h-7 w-32 bg-white/10 rounded" />
+                </div>
+                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--dark-color)]/40 p-4 hidden sm:block">
+                  <div className="h-5 w-32 bg-white/10 rounded mb-3" />
+                  <div className="h-7 w-28 bg-white/10 rounded" />
+                </div>
               </div>
             )
           ) : error ? (
             <p className="text-red-600">{error}</p>
           ) : (
-            <div className="space-y-2">
-              <p className="text-2xl font-semibold">{showCajaFuerte ? `$${caja.saldo_caja?.toLocaleString("es-CL")}` : '••••••'}</p>
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Efectivo (Caja 1) */}
+                <div className="rounded-xl border border-green-500/30 bg-green-900/10 p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[var(--success-color)]" aria-hidden>payments</span>
+                      <h3 className="font-semibold">Efectivo</h3>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-green-500/30 bg-green-900/20 text-green-300/90">Caja 1</span>
+                  </div>
+                  <p className="text-2xl font-extrabold">
+                    {showCajaFuerte ? formatCLP(caja.saldo_caja) : '••••••'}
+                  </p>
+                </div>
+
+                {/* Cuenta bancaria (Caja 2) */}
+                {typeof caja?.saldo_caja2 !== 'undefined' && (
+                  <div className="rounded-xl border border-sky-500/30 bg-sky-900/10 p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sky-300" aria-hidden>account_balance</span>
+                        <h3 className="font-semibold">Cuenta bancaria</h3>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full border border-sky-500/30 bg-sky-900/20 text-sky-300/90">Caja 2</span>
+                    </div>
+                    <p className="text-2xl font-extrabold">
+                      {showCajaFuerte ? formatCLP(caja.saldo_caja2) : '••••••'}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {caja?.ultima_actualizacion && (
+                <p className="mt-3 text-xs text-[var(--text-secondary-color)]">
+                  Última actualización: {formatDateTimeCO(caja.ultima_actualizacion)}
+                </p>
+              )}
+            </>
           )}
         </section>
 
@@ -478,6 +522,7 @@ export default function Dashboard() {
   onReports={() => navigate('/reports')}
         onAddIncome={() => navigate('/new?tipo=INGRESO')}
         onAddExpense={() => navigate('/new?tipo=EGRESO')}
+        onCashout={() => navigate('/cashout')}
         active="home"
       />
     </div>

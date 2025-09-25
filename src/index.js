@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { NotificationsProvider } from './components/Notifications';
 import { BrowserRouter } from 'react-router-dom';
 import { applyTheme } from './theme';
 
@@ -12,7 +13,9 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <NotificationsProvider>
+        <App />
+      </NotificationsProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

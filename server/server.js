@@ -64,6 +64,7 @@ app.use('/api', async (req, res) => {
       headers: {
         // Propaga content-type si existe
         ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
+        ...(req.headers['accept'] ? { 'accept': req.headers['accept'] } : {}),
       },
     };
     if (!['GET', 'HEAD'].includes(req.method)) {
@@ -90,7 +91,9 @@ app.use('/api', async (req, res) => {
 // Config del cliente: permitir sobreescribir /config.json con envs en runtime
 app.get('/config.json', (_req, res, next) => {
   try {
-    const clientApi = (process.env.CLIENT_API_BASE || process.env.API_BASE || '').replace(/\/$/, '');
+    // Solo CLIENT_API_BASE puede sobreescribir la base del cliente.
+    // API_BASE es para el proxy del servidor y NO debe forzar al cliente a llamar cross-origin.
+    const clientApi = (process.env.CLIENT_API_BASE || '').replace(/\/$/, '');
     if (clientApi) {
       return res.json({ apiBase: clientApi + '/' });
     }

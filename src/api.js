@@ -23,7 +23,10 @@ export async function apiFetch(path, options) {
   const shouldUseBase = base && !isAbsolute && !isLocalService;
   const url = shouldUseBase ? base.replace(/\/$/, '') + p : p;
   try {
-    return await fetch(url, options);
+    const opts = options || {};
+    const headers = new Headers(opts.headers || {});
+    if (!headers.has('accept')) headers.set('accept', 'application/json');
+    return await fetch(url, { ...opts, headers });
   } catch (e) {
     // Fallback: si hay base remota y falla (CORS/red), reintenta contra mismo origen
     if (shouldUseBase && p) {

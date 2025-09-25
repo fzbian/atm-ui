@@ -139,6 +139,7 @@ export default function AdminUsers() {
         onReports={() => navigate('/reports')}
         onAddIncome={() => navigate('/new?tipo=INGRESO')}
         onAddExpense={() => navigate('/new?tipo=EGRESO')}
+        onCashout={() => navigate('/cashout')}
         active={null}
       />
 

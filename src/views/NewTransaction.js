@@ -9,9 +9,12 @@ import useTitle from "../useTitle";
 import useTimeout from "../useTimeout";
 import { getSessionUsername, getUsers, isAuthenticated } from "../auth";
 import { notifyMutation } from "../mutations";
+import { useNotifications } from "../components/Notifications";
+import { formatCLP } from "../formatMoney";
 
 export default function NewTransaction() {
   useTitle("Nueva transacción · ATM Ricky Rich");
+  const { notify } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
   // Permite prefijar tipo via query: /new?tipo=INGRESO o EGRESO
@@ -23,6 +26,7 @@ export default function NewTransaction() {
   const [descripcion, setDescripcion] = useState("");
   const [monto, setMonto] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
+  const [cajaId, setCajaId] = useState(1); // 1=Efectivo, 2=Cuenta bancaria
 
   const [cats, setCats] = useState([]);
   const [loadingCats, setLoadingCats] = useState(true);
@@ -103,7 +107,7 @@ export default function NewTransaction() {
     return list.sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [cats, tipo]);
 
-  const canSubmit = descripcion.trim() && Number(monto) > 0 && categoriaId;
+  const canSubmit = descripcion.trim() && Number(monto) > 0 && categoriaId && Number(cajaId) > 0;
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -121,7 +125,17 @@ export default function NewTransaction() {
     // Validación previa de saldo para EGRESO
     if (tipo === 'EGRESO') {
       try {
-        const saldo = await getSaldoCajaLight();
+        // Validación preliminar usando saldos locales por caja; el backend hará validación final
+        let saldo = null;
+        try {
+          const r = await apiFetch('/api/caja?solo_caja=true');
+          if (r.ok) {
+            const d = await r.json();
+            const sel = Number(cajaId) === 2 ? (d?.saldo_caja2) : (d?.saldo_caja ?? d?.saldo);
+            const n = Number(sel);
+            saldo = Number.isFinite(n) ? n : null;
+          }
+        } catch {}
         const solicitado = Number(monto);
         if (Number.isFinite(solicitado) && Number.isFinite(saldo) && solicitado > saldo) {
           setOverlayKind('insufficient');
@@ -153,7 +167,8 @@ export default function NewTransaction() {
         categoria_id: Number(categoriaId),
         descripcion: descripcion.trim(),
         monto: Number(monto),
-  usuario: usuarioDisplay || getSessionUsername() || "",
+        caja_id: Number(cajaId),
+        usuario: usuarioDisplay || getSessionUsername() || "",
       };
   const res = await apiFetch("/api/transacciones", {
         method: "POST",
@@ -161,35 +176,38 @@ export default function NewTransaction() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        if (res.status === 409) {
+        if (res.status === 409 || res.status === 400) {
           // Saldo insuficiente u otra precondición del servidor
           let data = null;
           try { data = await res.json(); } catch (_) { /* ignore */ }
           const solicitado = data && Number.isFinite(Number(data.monto_solicitado)) ? Number(data.monto_solicitado) : Number(monto);
           const saldo = data && Number.isFinite(Number(data.saldo_actual)) ? Number(data.saldo_actual) : null;
-          const baseMsg = (data && data.error) ? String(data.error) : 'Saldo insuficiente en caja para realizar el egreso';
+          const baseMsg = (data && data.error) ? String(data.error) : (res.status===409 ? 'Saldo insuficiente en caja para realizar el egreso' : 'Solicitud inválida');
           // Mostrar overlay especial amigable
           setOverlayKind('insufficient');
-          setOverlayTitle('Saldo insuficiente');
+          setOverlayTitle(res.status===409 ? 'Saldo insuficiente' : 'No se pudo crear');
           setOverlayData({ solicitado, saldo });
           setOverlayMessage(baseMsg);
           setProgressOpen(false);
           setOverlayOpen(true);
           setSubmitting(false);
+          notify({ type: 'error', title: 'No se pudo crear', message: baseMsg });
           return; // no continuar
         }
         const txt = await res.text();
         throw new Error(txt || "Error al crear transacción");
       }
-  notifyMutation();
-  navigate("/movements", { state: { toast: "Transacción creada con éxito", reload: true } });
+      notifyMutation();
+  notify({ type: 'success', title: 'Transacción creada', message: `Se registró correctamente por ${formatCLP(monto)} en ${Number(cajaId)===1?'Efectivo':'Cuenta bancaria'}.` });
+      navigate("/movements", { state: { toast: "Transacción creada con éxito", reload: true } });
     } catch (e) {
-      setErrorSubmit(e.message);
+    setErrorSubmit(e.message);
       setProgressOpen(false);
   setOverlayKind('info');
   setOverlayTitle('Error al crear transacción');
   setOverlayMessage(e.message || 'Error al crear transacción');
   setOverlayOpen(true);
+    notify({ type: 'error', title: 'Error al crear', message: e.message || 'Error al crear transacción' });
     } finally {
       setSubmitting(false);
     }
@@ -218,6 +236,7 @@ export default function NewTransaction() {
             onReports={() => navigate('/reports')}
             onAddIncome={() => setTipo('INGRESO')}
             onAddExpense={() => setTipo('EGRESO')}
+            onCashout={() => navigate('/cashout')}
             active="home"
           />
         </>
@@ -256,6 +275,7 @@ export default function NewTransaction() {
             onReports={() => navigate('/reports')}
             onAddIncome={() => setTipo('INGRESO')}
             onAddExpense={() => setTipo('EGRESO')}
+            onCashout={() => navigate('/cashout')}
             active="home"
           />
         </>
@@ -274,6 +294,7 @@ export default function NewTransaction() {
             onReports={() => navigate('/reports')}
             onAddIncome={() => setTipo('INGRESO')}
             onAddExpense={() => setTipo('EGRESO')}
+            onCashout={() => navigate('/cashout')}
             active="home"
           />
         </>
@@ -364,6 +385,31 @@ export default function NewTransaction() {
                 ))}
               </div>
             )}
+          </section>
+
+          {/* Caja */}
+          <section className="bg-[var(--card-color)] rounded-lg p-4 border border-[var(--border-color)]">
+            <h2 className="text-sm font-semibold text-[var(--text-secondary-color)] mb-3">Caja</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <label className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                Number(cajaId) === 1
+                  ? 'border-[var(--primary-color)] bg-white/5'
+                  : 'border-[var(--border-color)] hover:bg-white/5'
+              }`}>
+                <input type="radio" name="caja" value={1} className="sr-only" checked={Number(cajaId) === 1} onChange={() => setCajaId(1)} />
+                <span className="material-symbols-outlined">account_balance_wallet</span>
+                <span className="text-sm">Efectivo</span>
+              </label>
+              <label className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                Number(cajaId) === 2
+                  ? 'border-[var(--primary-color)] bg-white/5'
+                  : 'border-[var(--border-color)] hover:bg-white/5'
+              }`}>
+                <input type="radio" name="caja" value={2} className="sr-only" checked={Number(cajaId) === 2} onChange={() => setCajaId(2)} />
+                <span className="material-symbols-outlined">account_balance</span>
+                <span className="text-sm">Cuenta bancaria</span>
+              </label>
+            </div>
           </section>
 
           {/* Descripción y Monto */}
@@ -480,6 +526,13 @@ export default function NewTransaction() {
                 </div>
               </li>
               <li className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-[var(--text-secondary-color)]">account_balance_wallet</span>
+                <div>
+                  <p className="text-xs text-[var(--text-secondary-color)]">Caja</p>
+                  <p className="text-sm font-medium">{Number(cajaId) === 1 ? 'Efectivo' : Number(cajaId) === 2 ? 'Cuenta bancaria' : `Caja #${cajaId}`}</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
                 <span className={`material-symbols-outlined ${tipo === 'EGRESO' ? 'text-[var(--danger-color)]' : 'text-[var(--success-color)]'}`}>attach_money</span>
                 <div>
                   <p className="text-xs text-[var(--text-secondary-color)]">Monto</p>
@@ -542,14 +595,14 @@ export default function NewTransaction() {
                       <span className="material-symbols-outlined !text-base text-[var(--danger-color)]">request_quote</span>
                       Solicitado
                     </div>
-          <div className="mt-1 text-lg font-bold text-[var(--danger-color)] break-words">${formatMoney(overlayData?.solicitado ?? monto)}</div>
+          <div className="mt-1 text-lg font-bold text-[var(--danger-color)] break-words">{formatCLP(overlayData?.solicitado ?? monto)}</div>
                   </div>
                   <div className="p-3 rounded-xl border border-[var(--border-color)] bg-[var(--dark-color)]">
                     <div className="flex items-center gap-2 text-xs text-[var(--text-secondary-color)]">
                       <span className="material-symbols-outlined !text-base text-[var(--success-color)]">account_balance_wallet</span>
                       Saldo actual
                     </div>
-          <div className="mt-1 text-lg font-bold text-[var(--success-color)] break-words">${formatMoney(overlayData?.saldo ?? 0)}</div>
+          <div className="mt-1 text-lg font-bold text-[var(--success-color)] break-words">{formatCLP(overlayData?.saldo ?? 0)}</div>
                   </div>
                 </div>
                 <div className="mt-4 text-xs text-[var(--text-secondary-color)]">

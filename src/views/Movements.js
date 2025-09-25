@@ -10,11 +10,14 @@ import { notifyMutation } from "../mutations";
 import useTitle from "../useTitle";
 import { formatDateTimeCOAbbr, getYMDKeyCO, getTodayYMDKeyCO, getYesterdayYMDKeyCO, formatDateFromYMDKeyCO } from "../dateFormat";
 import useTimeout from "../useTimeout";
+import { useNotifications } from "../components/Notifications";
+import { formatCLP } from "../formatMoney";
 
 export default function Movements() {
   useTitle("Movimientos · ATM Ricky Rich");
   const navigate = useNavigate();
   const location = useLocation();
+  const { notify } = useNotifications();
 
   // Estado de servidor
   const [serverOk, setServerOk] = useState(null);
@@ -39,10 +42,13 @@ export default function Movements() {
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [fTipo, setFTipo] = useState("");
+  const [fCajaId, setFCajaId] = useState(""); // "" | "1" | "2"
   const [fUsuario, setFUsuario] = useState("");
   const [fDesc, setFDesc] = useState("");
   const [filterError, setFilterError] = useState("");
   const [appliedFilters, setAppliedFilters] = useState({ limit: DEFAULT_LIMIT });
+  // Filtro rápido por caja ('' | '1' | '2')
+  const [quickCaja, setQuickCaja] = useState("");
 
   // Estados de edición/eliminación
   const [editTx, setEditTx] = useState(null);
@@ -115,7 +121,8 @@ export default function Movements() {
     if (f?.to) p.set("to", f.to);
     if (f?.tipo) p.set("tipo", f.tipo);
     if (f?.descripcion) p.set("descripcion", f.descripcion);
-  if (f?.usuario) p.set("usuario", f.usuario);
+    if (f?.usuario) p.set("usuario", f.usuario);
+    if (f?.caja_id) p.set("caja_id", String(f.caja_id));
     const s = p.toString();
     return s ? `?${s}` : "";
   }, []);
@@ -263,7 +270,8 @@ export default function Movements() {
       to: fTo || undefined,
       tipo: fTipo || undefined,
       descripcion: fDesc.trim() || undefined,
-  usuario: fUsuario || undefined,
+      usuario: fUsuario || undefined,
+      caja_id: fCajaId ? Number(fCajaId) : undefined,
     };
     setAppliedFilters(f);
     loadTxs(f);
@@ -277,8 +285,32 @@ export default function Movements() {
     setFTipo("");
     setFDesc("");
     setFUsuario("");
+    setFCajaId("");
     setFilterError("");
     const next = { limit: DEFAULT_LIMIT };
+    setAppliedFilters(next);
+    loadTxs(next);
+    setQuickCaja("");
+  };
+
+  // Sincroniza quickCaja cuando cambian los filtros aplicados
+  useEffect(() => {
+    const c = appliedFilters?.caja_id;
+    if (c === 1) setQuickCaja("1");
+    else if (c === 2) setQuickCaja("2");
+    else setQuickCaja("");
+  }, [appliedFilters?.caja_id]);
+
+  // Aplicación de filtro rápido por caja
+  const applyQuickCaja = (k) => {
+    setQuickCaja(k);
+    setFCajaId(k);
+    const next = {
+      ...appliedFilters,
+      caja_id: k ? Number(k) : undefined,
+    };
+    // Limpia propiedad si es undefined para evitar que quede en URL
+    if (!k && 'caja_id' in next) delete next.caja_id;
     setAppliedFilters(next);
     loadTxs(next);
   };
@@ -321,16 +353,31 @@ export default function Movements() {
     setUpdating(true);
     setProgressOpen(true);
     try {
-  const actor = await resolveActorName();
-  const qp = actor ? `?usuario=${encodeURIComponent(actor)}` : "";
-  const res = await apiFetch(`/api/transacciones/${editTx.id}${qp}`, {
+      const actor = await resolveActorName();
+      const q = new URLSearchParams();
+      if (actor) q.set('usuario', actor);
+      // API requiere caja_id en actualización; si no se edita, enviar la actual
+      const caja = Number(editTx.caja_id) > 0 ? Number(editTx.caja_id) : undefined;
+      if (caja) q.set('caja_id', String(caja));
+      const qs = q.toString();
+      const res = await apiFetch(`/api/transacciones/${editTx.id}${qs ? `?${qs}` : ''}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
+        if (res.status === 409 || res.status === 400) {
+          let data = null;
+          try { data = await res.json(); } catch(_){}
+          const msg = (data && data.error) ? String(data.error) : (res.status===409 ? 'Conflicto de saldo o validación' : 'Solicitud inválida');
+          setEditError(msg);
+          notify({ type: 'error', title: 'No se pudo actualizar', message: msg });
+          return;
+        }
         const txt = await res.text();
-        throw new Error(txt || "Error al actualizar");
+        const errMsg = txt || 'Error al actualizar';
+        notify({ type: 'error', title: 'No se pudo actualizar', message: errMsg });
+        throw new Error(errMsg);
       }
       // Re-fetch to asegurar que lo mostrado corresponde al servidor
       setEditTx(null);
@@ -352,10 +399,12 @@ export default function Movements() {
           setLogsMap(grouped);
         }
       } catch {}
-  notifyMutation();
-  setToast("Transacción actualizada");
+    notifyMutation();
+    setToast("Transacción actualizada");
+    notify({ type: 'success', title: 'Actualización exitosa', message: 'La transacción fue actualizada.' });
     } catch (e) {
       setEditError(e.message || "Error al actualizar");
+      notify({ type: 'error', title: 'No se pudo actualizar', message: e.message || 'Error al actualizar' });
     } finally {
       setProgressOpen(false);
       setUpdating(false);
@@ -373,7 +422,9 @@ export default function Movements() {
   const res = await apiFetch(`/api/transacciones/${confirmDelete.id}${qp}`, { method: "DELETE" });
       if (!res.ok) {
         const txt = await res.text();
-        throw new Error(txt || "Error al eliminar");
+        const errMsg = txt || 'Error al eliminar';
+        notify({ type: 'error', title: 'No se pudo eliminar', message: errMsg });
+        throw new Error(errMsg);
       }
       // Re-fetch para asegurar consistencia con servidor y logs
       setConfirmDelete(null);
@@ -394,10 +445,12 @@ export default function Movements() {
           setLogsMap(grouped);
         }
       } catch {}
-  notifyMutation();
-  setToast("Transacción eliminada");
+    notifyMutation();
+    setToast("Transacción eliminada");
+  notify({ type: 'success', title: 'Eliminada', message: `La transacción fue eliminada (${formatCLP(confirmDelete.monto)}).` });
     } catch (e) {
       setToast(e.message || "Error al eliminar");
+      notify({ type: 'error', title: 'No se pudo eliminar', message: e.message || 'Error al eliminar' });
       setConfirmDelete(null);
     } finally {
       setProgressOpen(false);
@@ -423,7 +476,8 @@ export default function Movements() {
           onReports={() => navigate('/reports')}
           onAddIncome={() => navigate('/new?tipo=INGRESO')}
           onAddExpense={() => navigate('/new?tipo=EGRESO')}
-          active="movements"
+          onCashout={() => navigate('/cashout')}
+          active="movs"
         />
       </div>
     );
@@ -464,6 +518,9 @@ export default function Movements() {
               )}
               {appliedFilters?.tipo && (
                 <span className="text-xs px-2 py-1 rounded-full border border-[var(--border-color)] text-[var(--text-secondary-color)]">Tipo: {appliedFilters.tipo}</span>
+              )}
+              {appliedFilters?.caja_id && (
+                <span className="text-xs px-2 py-1 rounded-full border border-[var(--border-color)] text-[var(--text-secondary-color)]">Caja: {appliedFilters.caja_id === 1 ? 'Efectivo' : appliedFilters.caja_id === 2 ? 'Cuenta bancaria' : appliedFilters.caja_id}</span>
               )}
               {appliedFilters?.usuario && (
                 <span className="text-xs px-2 py-1 rounded-full border border-[var(--border-color)] text-[var(--text-secondary-color)]">Usuario: {appliedFilters.usuario}</span>
@@ -513,6 +570,17 @@ export default function Movements() {
                 </div>
               </div>
               <div>
+                <label className="block text-xs text-[var(--text-secondary-color)] mb-1">Caja</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[{k:"",label:"Todas",icon:"all_inclusive"},{k:"1",label:"Efectivo",icon:"account_balance_wallet"},{k:"2",label:"Cuenta bancaria",icon:"account_balance"}].map(o => (
+                    <button key={o.k+o.label} type="button" onClick={()=>setFCajaId(o.k)} className={`p-2 rounded-lg border text-sm flex items-center justify-center gap-1 ${fCajaId===o.k ? 'border-[var(--primary-color)] bg-white/5' : 'border-[var(--border-color)] hover:bg-white/5'}`}>
+                      <span className="material-symbols-outlined !text-base">{o.icon}</span>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <label className="block text-xs text-[var(--text-secondary-color)] mb-1">Desde</label>
                 <input type="date" value={fFrom} onChange={(e)=>setFFrom(e.target.value)} className="w-full bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm" />
               </div>
@@ -550,6 +618,37 @@ export default function Movements() {
               </div>
             </div>
           )}
+        </section>
+
+        {/* Vista rápida por caja (mobile-first) */}
+        <section className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            aria-pressed={quickCaja === ""}
+            onClick={() => applyQuickCaja("")}
+            className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 text-xs sm:text-sm ${quickCaja === "" ? 'border-[var(--primary-color)] bg-white/5' : 'border-[var(--border-color)] hover:bg-white/5'}`}
+          >
+            <span className="material-symbols-outlined">all_inclusive</span>
+            <span>Todos</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={quickCaja === "1"}
+            onClick={() => applyQuickCaja("1")}
+            className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 text-xs sm:text-sm ${quickCaja === "1" ? 'border-green-500/50 bg-green-900/10' : 'border-[var(--border-color)] hover:bg-white/5'}`}
+          >
+            <span className="material-symbols-outlined text-[var(--success-color)]">account_balance_wallet</span>
+            <span>Efectivo</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={quickCaja === "2"}
+            onClick={() => applyQuickCaja("2")}
+            className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 text-xs sm:text-sm ${quickCaja === "2" ? 'border-sky-500/50 bg-sky-900/10' : 'border-[var(--border-color)] hover:bg-white/5'}`}
+          >
+            <span className="material-symbols-outlined text-sky-300">account_balance</span>
+            <span>Cuenta</span>
+          </button>
         </section>
         {loading ? (
           timedOutTxs ? (
@@ -628,7 +727,12 @@ export default function Movements() {
                               <span className={`text-[10px] px-2 py-0.5 rounded-full border border-[var(--border-color)] bg-[var(--dark-color)] ${tipoColor}`}>
                                 {cat?.nombre || `Cat #${m.categoria_id}`}
                               </span>
-                              {tipo && <p className={`text-[10px] ${tipoColor}`}>{tipo}</p>}
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-[var(--text-secondary-color)] px-2 py-0.5 rounded-full border border-[var(--border-color)] bg-[var(--dark-color)]">
+                                  {Number(m.caja_id) === 1 ? 'Efectivo' : Number(m.caja_id) === 2 ? 'Cuenta bancaria' : `Caja #${m.caja_id}`}
+                                </span>
+                                {tipo && <p className={`text-[10px] ${tipoColor}`}>{tipo}</p>}
+                              </div>
                             </div>
                             <div className="mt-1">
                               <p className="text-xs text-[var(--text-secondary-color)] line-clamp-1 break-anywhere">
@@ -672,6 +776,9 @@ export default function Movements() {
                                     <div className="mt-1 flex items-center gap-2">
                                       <span className={`text-[10px] px-2 py-0.5 rounded-full border border-[var(--border-color)] bg-[var(--dark-color)] ${tipoColor}`}>
                                         {cat?.nombre || `Cat #${m.categoria_id}`}
+                                      </span>
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--border-color)] bg-[var(--dark-color)] text-[var(--text-secondary-color)]">
+                                        {Number(m.caja_id) === 1 ? 'Efectivo' : Number(m.caja_id) === 2 ? 'Cuenta bancaria' : `Caja #${m.caja_id}`}
                                       </span>
                                       {tipo && (
                                         <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-[var(--border-color)] bg-[var(--dark-color)] ${tipoColor}`}>
@@ -901,7 +1008,8 @@ export default function Movements() {
         onReports={() => navigate('/reports')}
         onAddIncome={() => navigate('/new?tipo=INGRESO')}
         onAddExpense={() => navigate('/new?tipo=EGRESO')}
-        active="movements"
+        onCashout={() => navigate('/cashout')}
+        active="movs"
       />
     </div>
   );
