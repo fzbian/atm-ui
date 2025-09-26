@@ -23,6 +23,7 @@ export default function NewTransaction() {
   const [checking, setChecking] = useState(true);
 
   const [tipo, setTipo] = useState(presetTipo === "EGRESO" ? "EGRESO" : "INGRESO");
+  const [step, setStep] = useState(1); // 1: Tipo, 2: Caja, 3: Categoría, 4: Monto+Descripción
   const [descripcion, setDescripcion] = useState("");
   const [monto, setMonto] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
@@ -45,6 +46,9 @@ export default function NewTransaction() {
   const [usuarioDisplay, setUsuarioDisplay] = useState("");
   const timedOutChecking = useTimeout(checking, 10000);
   const timedOutCats = useTimeout(loadingCats && serverOk === true, 10000);
+  // Stepper refs para auto-scroll first-mobile
+  const stepperContainerRef = useRef(null);
+  const stepRefs = useRef([]);
 
   // Server health check
   useEffect(() => {
@@ -107,21 +111,45 @@ export default function NewTransaction() {
     return list.sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [cats, tipo]);
 
-  const canSubmit = descripcion.trim() && Number(monto) > 0 && categoriaId && Number(cajaId) > 0;
+  // Validaciones por paso se manejan con validateCurrentStep()
+
+  const validateCurrentStep = () => {
+    if (step === 1) {
+      return tipo ? null : 'Selecciona si es Ingreso o Egreso';
+    }
+    if (step === 2) {
+      return Number(cajaId) > 0 ? null : 'Selecciona una caja';
+    }
+    if (step === 3) {
+      return categoriaId ? null : 'Selecciona una categoría';
+    }
+    if (step === 4) {
+      const missing = [];
+      if (!(Number(monto) > 0)) missing.push('Monto (> 0)');
+      if (!descripcion.trim()) missing.push('Descripción');
+      return missing.length ? `Por favor completa: ${missing.join(', ')}.` : null;
+    }
+    return null;
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
-    if (!canSubmit) {
-      const missing = [];
-      if (!descripcion.trim()) missing.push("Descripción");
-      if (!(Number(monto) > 0)) missing.push("Monto (> 0)");
-      if (!categoriaId) missing.push("Categoría");
+    // Validación por paso
+    const err = validateCurrentStep();
+    if (err) {
       setOverlayTitle('Completa el formulario');
-      setOverlayMessage(`Por favor completa: ${missing.join(', ')}.`);
+      setOverlayMessage(err);
+      setOverlayKind('info');
       setOverlayOpen(true);
       return;
     }
+    // Avanzar pasos 1-3
+    if (step < 4) {
+      setStep(step + 1);
+      return;
+    }
+    // Paso 4: validación de saldo (si EGRESO) y abrir confirmación
     // Validación previa de saldo para EGRESO
     if (tipo === 'EGRESO') {
       try {
@@ -213,6 +241,25 @@ export default function NewTransaction() {
     }
   };
 
+  // Auto-scroll del stepper en móviles: centra el paso visible
+  useEffect(() => {
+    const visualStep = (confirmOpen || progressOpen) ? 5 : step;
+    const idx = Math.max(0, Math.min(4, Number(visualStep) - 1));
+    const el = stepRefs.current[idx];
+    if (el && stepperContainerRef.current) {
+      try {
+        el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      } catch (_) {
+        // Fallback manual si algún navegador no soporta inline:center
+        const container = stepperContainerRef.current;
+        const elRect = el.getBoundingClientRect();
+        const cRect = container.getBoundingClientRect();
+        const offset = (elRect.left + elRect.width / 2) - (cRect.left + cRect.width / 2);
+        container.scrollLeft += offset;
+      }
+    }
+  }, [step, confirmOpen, progressOpen]);
+
   // Si se cambia el tipo, limpiar la categoría elegida
   useEffect(() => {
     setCategoriaId("");
@@ -234,8 +281,7 @@ export default function NewTransaction() {
             onMovements={() => navigate('/movements')}
             onWallet={() => navigate('/wallet')}
             onReports={() => navigate('/reports')}
-            onAddIncome={() => setTipo('INGRESO')}
-            onAddExpense={() => setTipo('EGRESO')}
+            onCreateMovement={() => { /* ya estamos en new */ }}
             onCashout={() => navigate('/cashout')}
             onCashoutBank={() => navigate('/cashout-bank')}
             active="home"
@@ -274,8 +320,7 @@ export default function NewTransaction() {
             onMovements={() => navigate('/movements')}
             onWallet={() => navigate('/wallet')}
             onReports={() => navigate('/reports')}
-            onAddIncome={() => setTipo('INGRESO')}
-            onAddExpense={() => setTipo('EGRESO')}
+            onCreateMovement={() => { /* ya estamos en new */ }}
             onCashout={() => navigate('/cashout')}
             onCashoutBank={() => navigate('/cashout-bank')}
             active="home"
@@ -294,8 +339,7 @@ export default function NewTransaction() {
             onMovements={() => navigate('/movements')}
             onWallet={() => navigate('/wallet')}
             onReports={() => navigate('/reports')}
-            onAddIncome={() => setTipo('INGRESO')}
-            onAddExpense={() => setTipo('EGRESO')}
+            onCreateMovement={() => { /* ya estamos en new */ }}
             onCashout={() => navigate('/cashout')}
             onCashoutBank={() => navigate('/cashout-bank')}
             active="home"
@@ -304,41 +348,104 @@ export default function NewTransaction() {
       ) : (
         <>
           <main className="flex-1 p-6 pb-[calc(env(safe-area-inset-bottom)+6rem)] view-enter view-enter-active">
-            <form onSubmit={onSubmit} className="space-y-4">
-          {/* Tipo de transacción */}
-          <section className="bg-[var(--card-color)] rounded-lg p-4 border border-[var(--border-color)]">
-            <h2 className="text-sm font-semibold text-[var(--text-secondary-color)] mb-3">Tipo</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
-                  tipo === "INGRESO"
-                    ? "border-[var(--success-color)] bg-green-900/20 text-[var(--success-color)]"
-                    : "border-[var(--border-color)] bg-transparent text-[var(--text-secondary-color)] hover:bg-white/5"
-                }`}
-                onClick={() => setTipo("INGRESO")}
-              >
-                <span className="material-symbols-outlined">arrow_upward</span>
-                Ingreso
-              </button>
-              <button
-                type="button"
-                className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
-                  tipo === "EGRESO"
-                    ? "border-[var(--danger-color)] bg-red-900/20 text-[var(--danger-color)]"
-                    : "border-[var(--border-color)] bg-transparent text-[var(--text-secondary-color)] hover:bg-white/5"
-                }`}
-                onClick={() => setTipo("EGRESO")}
-              >
-                <span className="material-symbols-outlined">arrow_downward</span>
-                Egreso
-              </button>
-            </div>
-          </section>
+            <form onSubmit={onSubmit} className="space-y-4 max-w-md mx-auto">
+          {/* Stepper visual de pasos */}
+          {(() => {
+            const visualStep = (confirmOpen || progressOpen) ? 5 : step;
+            const stepsMeta = [
+              { key: 'tipo', label: 'Tipo', icon: tipo === 'EGRESO' ? 'arrow_downward' : 'arrow_upward' },
+              { key: 'caja', label: 'Caja', icon: 'account_balance_wallet' },
+              { key: 'categoria', label: 'Categoría', icon: 'category' },
+              { key: 'detalles', label: 'Detalles', icon: 'attach_money' },
+              { key: 'confirmar', label: 'Confirmar', icon: 'checklist' },
+            ];
+            return (
+              <div className="mb-2">
+                <div
+                  ref={stepperContainerRef}
+                  className="flex items-center gap-2 overflow-x-auto overflow-y-hidden scroll-smooth snap-x snap-mandatory"
+                  style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x', overscrollBehaviorX: 'contain', overscrollBehaviorY: 'none' }}
+                >
+                  {stepsMeta.map((s, i) => {
+                    const idx = i + 1;
+                    const status = idx < visualStep ? 'done' : idx === visualStep ? 'current' : 'upcoming';
+                    return (
+                      <div key={s.key} className="flex items-center gap-2 snap-center">
+                        <div
+                          ref={(el) => { stepRefs.current[i] = el; }}
+                          className="flex flex-col items-center min-w-[56px]"
+                          aria-current={status === 'current' ? 'step' : undefined}
+                        >
+                          <div className={`h-9 w-9 rounded-full border flex items-center justify-center ${
+                            status === 'done'
+                              ? 'border-[var(--success-color)] bg-green-900/20 text-[var(--success-color)]'
+                              : status === 'current'
+                                ? 'border-[var(--primary-color)] bg-white/5 text-[var(--primary-color)]'
+                                : 'border-[var(--border-color)] text-[var(--text-secondary-color)]'
+                          }`}>
+                            <span className="material-symbols-outlined text-base" aria-hidden>{s.icon}</span>
+                          </div>
+                          <div className="mt-1 text-[10px] text-center leading-tight text-[var(--text-secondary-color)]">{s.label}</div>
+                        </div>
+                        {i < stepsMeta.length - 1 && (
+                          <span
+                            className={`material-symbols-outlined text-[18px] ${
+                              idx < visualStep
+                                ? 'text-[var(--success-color)]'
+                                : idx === visualStep
+                                  ? 'text-[var(--primary-color)]'
+                                  : 'text-[var(--border-color)]'
+                            }`}
+                            aria-hidden
+                          >
+                            chevron_right
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 text-center text-xs text-[var(--text-secondary-color)]">Paso {visualStep} de 5</div>
+              </div>
+            );
+          })()}
+          {/* Paso 1: Tipo de transacción */}
+          {step === 1 && (
+            <section className="bg-[var(--card-color)] rounded-lg p-4 border border-[var(--border-color)]">
+              <h2 className="text-sm font-semibold text-[var(--text-secondary-color)] mb-3 text-center">¿Qué deseas registrar?</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                    tipo === "INGRESO"
+                      ? "border-[var(--success-color)] bg-green-900/20 text-[var(--success-color)]"
+                      : "border-[var(--border-color)] bg-transparent text-[var(--text-secondary-color)] hover:bg-white/5"
+                  }`}
+                  onClick={() => setTipo("INGRESO")}
+                >
+                  <span className="material-symbols-outlined">arrow_upward</span>
+                  Ingreso
+                </button>
+                <button
+                  type="button"
+                  className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                    tipo === "EGRESO"
+                      ? "border-[var(--danger-color)] bg-red-900/20 text-[var(--danger-color)]"
+                      : "border-[var(--border-color)] bg-transparent text-[var(--text-secondary-color)] hover:bg-white/5"
+                  }`}
+                  onClick={() => setTipo("EGRESO")}
+                >
+                  <span className="material-symbols-outlined">arrow_downward</span>
+                  Egreso
+                </button>
+              </div>
+            </section>
+          )}
 
-          {/* Categoría */}
+          {/* Paso 3: Categoría */}
+          {step === 3 && (
           <section className="bg-[var(--card-color)] rounded-lg p-4 border border-[var(--border-color)]">
-            <h2 className="text-sm font-semibold text-[var(--text-secondary-color)] mb-3">Categoría</h2>
+            <h2 className="text-sm font-semibold text-[var(--text-secondary-color)] mb-3 text-center">Categoría</h2>
             {loadingCats ? (
               timedOutCats ? (
                 <ServerDown onRetry={() => {
@@ -389,10 +496,12 @@ export default function NewTransaction() {
               </div>
             )}
           </section>
+          )}
 
-          {/* Caja */}
+          {/* Paso 2: Caja */}
+          {step === 2 && (
           <section className="bg-[var(--card-color)] rounded-lg p-4 border border-[var(--border-color)]">
-            <h2 className="text-sm font-semibold text-[var(--text-secondary-color)] mb-3">Caja</h2>
+            <h2 className="text-sm font-semibold text-[var(--text-secondary-color)] mb-3 text-center">Caja</h2>
             <div className="grid grid-cols-2 gap-3">
               <label className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
                 Number(cajaId) === 1
@@ -414,24 +523,13 @@ export default function NewTransaction() {
               </label>
             </div>
           </section>
+          )}
 
-          {/* Descripción y Monto */}
+          {/* Paso 4: Monto y Descripción */}
+          {step === 4 && (
           <section className="bg-[var(--card-color)] rounded-lg p-4 border border-[var(--border-color)] space-y-3">
             <div>
-              <label className="block text-sm text-[var(--text-secondary-color)] mb-1">Descripción</label>
-              <div className="flex items-center gap-2 bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3">
-                <span className="material-symbols-outlined text-[var(--text-secondary-color)]">subject</span>
-                <input
-                  type="text"
-                  value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
-                  placeholder="Ej. EFECTIVO BURBUJA"
-                  className="flex-1 bg-transparent outline-none py-2 text-sm text-[var(--text-color)] placeholder:text-[var(--text-secondary-color)]"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm text-[var(--text-secondary-color)] mb-1">Monto</label>
+              <label className="block text-sm text-[var(--text-secondary-color)] mb-1 text-center">Monto</label>
               <div className="flex items-center gap-2 bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3">
                 <span className="material-symbols-outlined text-[var(--text-secondary-color)]">attach_money</span>
                 <input
@@ -447,35 +545,57 @@ export default function NewTransaction() {
                 />
               </div>
             </div>
+            <div>
+              <label className="block text-sm text-[var(--text-secondary-color)] mb-1 text-center">Descripción</label>
+              <div className="flex items-center gap-2 bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3">
+                <span className="material-symbols-outlined text-[var(--text-secondary-color)]">subject</span>
+                <input
+                  type="text"
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                  placeholder="Ej. EFECTIVO BURBUJA"
+                  className="flex-1 bg-transparent outline-none py-2 text-sm text-[var(--text-color)] placeholder:text-[var(--text-secondary-color)]"
+                />
+              </div>
+            </div>
           </section>
+          )}
 
           {errorSubmit && (
             <p className="text-red-500 text-sm">{errorSubmit}</p>
           )}
 
           <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="flex-1 py-3 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5"
-            >
-              Cancelar
-            </button>
+            {step === 1 ? (
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="flex-1 py-3 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5"
+              >
+                Cancelar
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setStep(step - 1)}
+                className="flex-1 py-3 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5"
+              >
+                Atrás
+              </button>
+            )}
             <button
               type="submit"
               className={`flex-1 py-3 rounded-lg text-white font-medium flex items-center justify-center gap-2 ${
                 submitting
                   ? 'bg-[color:rgba(255,255,255,0.2)] cursor-progress'
-                  : !canSubmit
-                    ? 'bg-[color:rgba(255,255,255,0.15)] cursor-not-allowed'
-                    : tipo === 'EGRESO'
-                      ? 'bg-[var(--danger-color)] hover:opacity-90'
-                      : 'bg-[var(--success-color)] hover:opacity-90'
+                  : step === 4
+                    ? (tipo === 'EGRESO' ? 'bg-[var(--danger-color)] hover:opacity-90' : 'bg-[var(--success-color)] hover:opacity-90')
+                    : 'bg-[var(--primary-color)] hover:opacity-90'
               }`}
               disabled={submitting}
             >
               {submitting && <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden />}
-              {submitting ? 'Procesando...' : 'Continuar'}
+              {submitting ? 'Procesando...' : (step < 4 ? 'Continuar' : 'Crear movimiento')}
             </button>
           </div>
             </form>
@@ -485,8 +605,7 @@ export default function NewTransaction() {
             onMovements={() => navigate('/movements')}
             onWallet={() => navigate('/wallet')}
             onReports={() => navigate('/reports')}
-            onAddIncome={() => setTipo('INGRESO')}
-            onAddExpense={() => setTipo('EGRESO')}
+            onCreateMovement={() => { /* ya estamos en new */ }}
             onCashoutBank={() => navigate('/cashout-bank')}
             active="home"
           />

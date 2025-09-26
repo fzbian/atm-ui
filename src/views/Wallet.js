@@ -22,8 +22,7 @@ export default function Wallet() {
         onMovements={() => navigate('/movements')}
         onWallet={() => {}}
   onReports={() => navigate('/reports')}
-        onAddIncome={() => navigate('/new?tipo=INGRESO')}
-        onAddExpense={() => navigate('/new?tipo=EGRESO')}
+    onCreateMovement={() => navigate('/new')}
         onCashout={() => navigate('/cashout')}
         onCashoutBank={() => navigate('/cashout-bank')}
         active="wallet"

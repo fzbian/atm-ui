@@ -224,8 +224,7 @@ export default function Dashboard() {
           onMovements={() => navigate('/movements')}
           onWallet={() => navigate('/wallet')}
           onReports={() => navigate('/reports')}
-          onAddIncome={() => navigate('/new?tipo=INGRESO')}
-          onAddExpense={() => navigate('/new?tipo=EGRESO')}
+          onCreateMovement={() => navigate('/new')}
           onCashout={() => navigate('/cashout')}
           onCashoutBank={() => navigate('/cashout-bank')}
           active="home"
@@ -252,8 +251,7 @@ export default function Dashboard() {
           onMovements={() => navigate('/movements')}
           onWallet={() => navigate('/wallet')}
           onReports={() => navigate('/reports')}
-          onAddIncome={() => navigate('/new?tipo=INGRESO')}
-          onAddExpense={() => navigate('/new?tipo=EGRESO')}
+          onCreateMovement={() => navigate('/new')}
           onCashout={() => navigate('/cashout')}
           onCashoutBank={() => navigate('/cashout-bank')}
           active="home"
@@ -522,8 +520,7 @@ export default function Dashboard() {
         onMovements={() => navigate('/movements')}
         onWallet={() => navigate('/wallet')}
   onReports={() => navigate('/reports')}
-        onAddIncome={() => navigate('/new?tipo=INGRESO')}
-        onAddExpense={() => navigate('/new?tipo=EGRESO')}
+        onCreateMovement={() => navigate('/new')}
         onCashout={() => navigate('/cashout')}
           onCashoutBank={() => navigate('/cashout-bank')}
         active="home"

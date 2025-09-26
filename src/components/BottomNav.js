@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function BottomNav({ onAddIncome, onAddExpense, onCashout, onCashoutBank, onHome, onReports, onMovements, onWallet, active = "home" }) {
+export default function BottomNav({ onCreateMovement, onAddIncome, onAddExpense, onCashout, onCashoutBank, onHome, onReports, onMovements, onWallet, active = "home" }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -20,34 +20,32 @@ export default function BottomNav({ onAddIncome, onAddExpense, onCashout, onCash
             role="dialog"
             aria-modal="true"
           >
-            <div className="px-5 py-5 flex flex-col gap-3">
+            <div className="px-5 py-5 flex flex-col gap-3 items-center text-center">
+              {/* Acción unificada: Realizar movimiento */}
               <button
-                className="w-full flex items-center gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--background-color)] transition-colors duration-150 hover:bg-white/5 active:scale-[0.98]"
+                className="w-full max-w-sm flex items-center justify-center gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--background-color)] transition-colors duration-150 hover:bg-white/5 active:scale-[0.98]"
                 onClick={() => {
-                  onAddIncome && onAddIncome();
+                  if (onCreateMovement) {
+                    onCreateMovement();
+                  } else if (onAddIncome) {
+                    // fallback mínimo
+                    onAddIncome();
+                  } else if (onAddExpense) {
+                    onAddExpense();
+                  }
                   setOpen(false);
                 }}
               >
-                <span className="material-symbols-outlined text-[var(--success-color)]">arrow_upward</span>
-                <span className="text-base font-medium text-[var(--text-color)]">Registrar Ingreso</span>
-              </button>
-              <button
-                className="w-full flex items-center gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--background-color)] transition-colors duration-150 hover:bg-white/5 active:scale-[0.98]"
-                onClick={() => {
-                  onAddExpense && onAddExpense();
-                  setOpen(false);
-                }}
-              >
-                <span className="material-symbols-outlined text-[var(--danger-color)]">arrow_downward</span>
-                <span className="text-base font-medium text-[var(--text-color)]">Registrar Egreso</span>
+                <span className="material-symbols-outlined text-[var(--primary-color)]">add_notes</span>
+                <span className="text-base font-medium text-[var(--text-color)]">Realizar movimiento</span>
               </button>
 
               {/* Separador */}
               <div className="h-px bg-[var(--border-color)] my-1" />
 
-              {/* Acción nueva: Retirar efectivo en punto */}
+              {/* Retirar efectivo en punto */}
               <button
-                className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border border-transparent bg-[#2563eb] text-white transition-colors duration-150 hover:brightness-110 active:scale-[0.98]"
+                className="w-full max-w-sm flex items-center justify-center gap-3 p-4 rounded-xl border border-transparent bg-[#2563eb] text-white transition-colors duration-150 hover:brightness-110 active:scale-[0.98]"
                 onClick={() => {
                   onCashout && onCashout();
                   setOpen(false);
@@ -57,9 +55,9 @@ export default function BottomNav({ onAddIncome, onAddExpense, onCashout, onCash
                 <span className="text-base font-semibold">Retirar efectivo en punto</span>
               </button>
 
-              {/* Acción nueva: Retirar dinero de banco */}
+              {/* Retirar dinero de banco */}
               <button
-                className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--background-color)] transition-colors duration-150 hover:bg-white/5 active:scale-[0.98]"
+                className="w-full max-w-sm flex items-center justify-center gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--background-color)] transition-colors duration-150 hover:bg-white/5 active:scale-[0.98]"
                 onClick={() => {
                   onCashoutBank && onCashoutBank();
                   setOpen(false);

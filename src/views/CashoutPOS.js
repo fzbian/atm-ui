@@ -246,8 +246,7 @@ export default function CashoutPOS() {
         onMovements={() => navigate('/movements')}
         onWallet={() => navigate('/wallet')}
         onReports={() => navigate('/reports')}
-        onAddIncome={() => navigate('/new?tipo=INGRESO')}
-        onAddExpense={() => navigate('/new?tipo=EGRESO')}
+        onCreateMovement={() => navigate('/new')}
         onCashout={() => {}}
         onCashoutBank={() => navigate('/cashout-bank')}
         active={null}
