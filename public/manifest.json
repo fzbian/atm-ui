@@ -2,7 +2,7 @@
   "short_name": "ATM",
   "name": "ATM Ricky Rich",
   "icons": [
-    { "src": "logo.png", "type": "image/png", "sizes": "192x192" }
+    { "src": "atm.png", "type": "image/png", "sizes": "192x192" }
   ],
   "start_url": ".",
   "display": "standalone",
