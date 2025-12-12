@@ -5,7 +5,6 @@ import BottomNav from '../components/BottomNav';
 import Preloader from '../components/Preloader';
 import useTitle from '../useTitle';
 import { listClientInvoices, uploadSupportImage, createAbono } from '../carteraApi';
-import { formatDateCOAbbrOnlyDate } from '../dateFormat';
 
 function formatCurrency(v){ const n=Number(v); if(!Number.isFinite(n)) return String(v??''); return n.toLocaleString('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}); }
 
@@ -13,7 +12,6 @@ export default function CreateAbonoWizard(){
   const navigate = useNavigate();
   const { id: clientId } = useParams();
   const location = useLocation();
-  const clientFromState = location.state?.client || null;
   useTitle('Nuevo abono · ATM');
 
   const [step,setStep]=useState(1);
@@ -23,7 +21,6 @@ export default function CreateAbonoWizard(){
   const [metodo,setMetodo]=useState('');
   const [montoTotal,setMontoTotal]=useState('');
   const [referencia,setReferencia]=useState('');
-  const [soporteFile,setSoporteFile]=useState(null);
   const [soporteUploading,setSoporteUploading]=useState(false);
   const [soporteData,setSoporteData]=useState(null); // {url, fullUrl, nombre, path}
   const [distribucionModo,setDistribucionModo]=useState('una'); // 'una' | 'multiple'
@@ -165,7 +162,7 @@ export default function CreateAbonoWizard(){
                         <span className="text-xs font-medium truncate">{soporteData.nombre}</span>
                         <a href={soporteData.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[var(--primary-color)] underline truncate">Ver imagen</a>
                       </div>
-                      <button type="button" onClick={()=>{ setSoporteFile(null); setSoporteData(null); }} className="text-[10px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10">Quitar</button>
+                      <button type="button" onClick={()=> setSoporteData(null)} className="text-[10px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10">Quitar</button>
                     </div>
                   )}
                 </div>

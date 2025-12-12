@@ -31,6 +31,13 @@ export default function Dashboard() {
   const greeting = hour < 5 ? 'Buenas noches' : hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
   useTitle("Dashboard · ATM Ricky Rich");
 
+  // Derivados de caja para locales (se recalculan en render)
+  const localesList = caja?.locales ? Object.entries(caja.locales) : [];
+  const totalLocalesSaldo = typeof caja?.total_locales === 'number'
+    ? caja.total_locales
+    : localesList.reduce((acc, [, l]) => acc + (Number(l?.saldo_en_caja) || 0), 0);
+  const totalLocalesVendido = localesList.reduce((acc, [, l]) => acc + (Number(l?.vendido) || 0), 0);
+
   const timedOutChecking = useTimeout(checking, 10000);
   const timedOutCaja = useTimeout(loading && serverOk === true, 10000);
   const timedOutMovs = useTimeout(loadingMovs && serverOk === true, 10000);
@@ -56,6 +63,7 @@ export default function Dashboard() {
       const resCaja = await apiFetch("/api/caja");
       if (!resCaja.ok) throw new Error("Error al obtener saldo");
       const dataCaja = await resCaja.json();
+      console.log('[api/caja] reload', dataCaja);
       setCaja(dataCaja);
     } catch (err) {
       setError(err.message);
@@ -107,6 +115,7 @@ export default function Dashboard() {
           const resCaja = await apiFetch("/api/caja");
           if (!resCaja.ok) throw new Error("Error al obtener saldo");
           const dataCaja = await resCaja.json();
+          console.log('[api/caja] initial', dataCaja);
           if (cancelled) return;
           setCaja(dataCaja);
           setLoading(false);
@@ -263,12 +272,12 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[var(--background-color)] text-[var(--text-color)] flex flex-col">
       <Header title="ATM Ricky Rich" titleImage={process.env.PUBLIC_URL + '/large.png'} titleImageClass="h-12" />
-      <main className="flex-1 p-6 space-y-8 pb-[calc(env(safe-area-inset-bottom)+6rem)] view-enter view-enter-active">
+      <main className="flex-1 p-4 sm:p-6 space-y-6 pb-[calc(env(safe-area-inset-bottom)+6rem)] view-enter view-enter-active">
         {/* Saludo según hora */}
-        <section>
+        <section className="space-y-1">
           <h2 className="text-2xl font-extrabold tracking-tight">{displayName ? `${greeting}, ${displayName}` : greeting}</h2>
-          <p className="text-sm text-[var(--text-secondary-color)] mt-1">{
-            nowCo.toLocaleString("es-CO", {
+          <p className="text-sm text-[var(--text-secondary-color)]">
+            {nowCo.toLocaleString("es-CO", {
               timeZone: "America/Bogota",
               weekday: "long",
               year: "numeric",
@@ -276,18 +285,24 @@ export default function Dashboard() {
               day: "numeric",
               hour: "2-digit",
               minute: "2-digit",
-            })
-          }</p>
+            })}
+          </p>
         </section>
-        {/* Tarjeta principal: Saldo Total */}
-        <section className="bg-[var(--primary-color)] text-white rounded-lg p-4 border border-[var(--border-color)] shadow">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
+
+        {/* Tarjeta principal: Saldo Total + resumen rápido */}
+        <section className="bg-gradient-to-br from-[var(--primary-color)] to-[var(--primary-color)]/80 text-white rounded-2xl p-4 sm:p-5 border border-white/10 shadow">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
               <span className="material-symbols-outlined !text-3xl" aria-hidden>
                 savings
               </span>
-              Saldo Total
-            </h2>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-white/70">Saldo total</p>
+                <p className="text-3xl font-extrabold leading-tight">
+                  {showSaldoTotal ? formatCLP(caja?.saldo_total) : '••••••'}
+                </p>
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => setShowSaldoTotal(v => !v)}
@@ -297,105 +312,47 @@ export default function Dashboard() {
               <span className="material-symbols-outlined">{showSaldoTotal ? 'visibility' : 'visibility_off'}</span>
             </button>
           </div>
+
           {loading || checking ? (
             timedOutCaja ? (
               <ServerDown onRetry={reloadCaja} />
             ) : (
-              <div className="animate-pulse space-y-3">
-                <div className="h-8 w-40 bg-white/10 rounded" />
-                <div className="h-6 w-56 bg-white/10 rounded" />
+              <div className="animate-pulse space-y-3 mt-3">
+                <div className="h-8 w-40 bg-white/20 rounded" />
+                <div className="h-4 w-32 bg-white/15 rounded" />
               </div>
             )
           ) : error ? (
-            <p className="text-red-200">{error}</p>
+            <p className="mt-3 text-red-100">{error}</p>
           ) : (
-            <div className="space-y-2">
-              <p className="text-3xl font-bold">{showSaldoTotal ? `$${caja.saldo_total?.toLocaleString("es-CL")}` : '••••••'}</p>
-              <p className="text-sm opacity-80">Última actualización: {formatDateTimeCO(caja.ultima_actualizacion)}</p>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <div className="rounded-xl bg-white/10 border border-white/20 p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-white/80">
+                  <span className="material-symbols-outlined text-lg" aria-hidden>payments</span>
+                  <span>Efectivo</span>
+                </div>
+                <span className="font-semibold">{showSaldoTotal ? formatCLP(caja?.saldo_caja) : '••••••'}</span>
+              </div>
+              <div className="rounded-xl bg-white/10 border border-white/20 p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-white/80">
+                  <span className="material-symbols-outlined text-lg" aria-hidden>account_balance</span>
+                  <span>Cuenta</span>
+                </div>
+                <span className="font-semibold">{showSaldoTotal ? formatCLP(caja?.saldo_caja2) : '••••••'}</span>
+              </div>
             </div>
           )}
-        </section>
 
-
-        {/* Cajas: Efectivo y Cuenta bancaria */}
-        <section className="bg-[var(--card-color)] rounded-lg p-4 border border-[var(--border-color)] shadow">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <span className="material-symbols-outlined" aria-hidden>
-                account_balance_wallet
-              </span>
-              Cajas
-            </h2>
-            <button
-              type="button"
-              onClick={() => setShowCajaFuerte(v => !v)}
-              aria-label={showCajaFuerte ? 'Ocultar montos de cajas' : 'Mostrar montos de cajas'}
-              className="p-2 rounded-lg hover:bg-white/5"
-            >
-              <span className="material-symbols-outlined">{showCajaFuerte ? 'visibility' : 'visibility_off'}</span>
-            </button>
-          </div>
-          {loading || checking ? (
-            timedOutCaja ? (
-              <ServerDown onRetry={reloadCaja} />
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-pulse">
-                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--dark-color)]/40 p-4">
-                  <div className="h-5 w-24 bg-white/10 rounded mb-3" />
-                  <div className="h-7 w-32 bg-white/10 rounded" />
-                </div>
-                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--dark-color)]/40 p-4 hidden sm:block">
-                  <div className="h-5 w-32 bg-white/10 rounded mb-3" />
-                  <div className="h-7 w-28 bg-white/10 rounded" />
-                </div>
-              </div>
-            )
-          ) : error ? (
-            <p className="text-red-600">{error}</p>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Efectivo (Caja 1) */}
-                <div className="rounded-xl border border-green-500/30 bg-green-900/10 p-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[var(--success-color)]" aria-hidden>payments</span>
-                      <h3 className="font-semibold">Efectivo</h3>
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-green-500/30 bg-green-900/20 text-green-300/90">Caja 1</span>
-                  </div>
-                  <p className="text-2xl font-extrabold">
-                    {showCajaFuerte ? formatCLP(caja.saldo_caja) : '••••••'}
-                  </p>
-                </div>
-
-                {/* Cuenta bancaria (Caja 2) */}
-                {typeof caja?.saldo_caja2 !== 'undefined' && (
-                  <div className="rounded-xl border border-sky-500/30 bg-sky-900/10 p-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-sky-300" aria-hidden>account_balance</span>
-                        <h3 className="font-semibold">Cuenta bancaria</h3>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full border border-sky-500/30 bg-sky-900/20 text-sky-300/90">Caja 2</span>
-                    </div>
-                    <p className="text-2xl font-extrabold">
-                      {showCajaFuerte ? formatCLP(caja.saldo_caja2) : '••••••'}
-                    </p>
-                  </div>
-                )}
-              </div>
-              {caja?.ultima_actualizacion && (
-                <p className="mt-3 text-xs text-[var(--text-secondary-color)]">
-                  Última actualización: {formatDateTimeCO(caja.ultima_actualizacion)}
-                </p>
-              )}
-            </>
+          {caja?.ultima_actualizacion && (
+            <p className="mt-3 text-[11px] text-white/80 flex items-center gap-1">
+              <span className="material-symbols-outlined text-base" aria-hidden>schedule</span>
+              Actualizado: {formatDateTimeCO(caja.ultima_actualizacion)}
+            </p>
           )}
         </section>
 
         {/* Tarjeta de locales */}
-        <section className="bg-[var(--card-color)] rounded-lg p-4 border border-[var(--border-color)] shadow">
+        <section className="bg-[var(--card-color)] rounded-2xl p-4 border border-[var(--border-color)] shadow">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <span className="material-symbols-outlined" aria-hidden>
@@ -418,7 +375,7 @@ export default function Dashboard() {
             ) : (
               <div className="grid grid-cols-2 gap-2 animate-pulse">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="bg-[var(--dark-color)] rounded p-2 border border-[var(--border-color)]">
+                  <div key={i} className="bg-[var(--dark-color)] rounded-xl p-3 border border-[var(--border-color)]">
                     <div className="h-4 w-24 bg-white/10 rounded mb-2" />
                     <div className="h-3 w-20 bg-white/10 rounded" />
                   </div>
@@ -428,28 +385,71 @@ export default function Dashboard() {
           ) : error ? (
             <p className="text-red-600">{error}</p>
           ) : (
-            <div>
-              <ul className="grid grid-cols-2 gap-2 mb-2">
-                {caja.locales && Object.entries(caja.locales).map(([nombre, monto]) => {
+            <div className="space-y-3">
+              <ul className="flex flex-col gap-2">
+                {localesList.map(([nombre, info]) => {
                   const nombreFormateado = nombre
                     .split('_')
                     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
                     .join(' ');
+                  const saldo = Number(info?.saldo_en_caja) || 0;
+                  const vendido = Number(info?.vendido) || 0;
+                  const estado = (info?.estado_sesion || '').toLowerCase();
+                  const estadoBadge = estado === 'abierta'
+                    ? 'border-green-500/40 bg-green-500/10 text-green-200'
+                    : estado === 'cerrada'
+                      ? 'border-white/15 bg-white/5 text-white/70'
+                      : 'border-white/15 bg-white/5 text-white/70';
+                  const vendidoLabel = estado === 'cerrada' ? 'No disponible' : (showLocales ? formatCLP(vendido) : '••••••');
+                  const vendidoClass = estado === 'cerrada' ? 'text-white/60' : 'text-white/90';
                   return (
-                    <li key={nombre} className="bg-[var(--dark-color)] rounded p-2 border border-[var(--border-color)] text-sm flex flex-col">
-                      <span className="font-semibold flex items-center gap-1">
-                        <span className="material-symbols-outlined !text-base" aria-hidden>
-                          store
+                    <li key={nombre} className="bg-[var(--dark-color)] rounded-xl p-3 border border-[var(--border-color)] text-sm flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold flex items-center gap-1">
+                          <span className="material-symbols-outlined !text-base" aria-hidden>
+                            store
+                          </span>
+                          {nombreFormateado}
                         </span>
-                        {nombreFormateado}
-                      </span>
-                      <span className="text-[var(--text-secondary-color)]">{showLocales ? `$${monto.toLocaleString("es-CL")}` : '••••••'}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${estadoBadge}`}>
+                          {estado ? estado.charAt(0).toUpperCase() + estado.slice(1) : '—'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[13px] text-[var(--text-secondary-color)]">
+                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2 flex flex-col gap-1">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm" aria-hidden>payments</span>
+                            En caja
+                          </span>
+                          <span className="font-semibold text-white/90 text-sm">{showLocales ? formatCLP(saldo) : '••••••'}</span>
+                        </div>
+                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2 flex flex-col gap-1">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm" aria-hidden>trending_up</span>
+                            Vendido
+                          </span>
+                          <span className={`font-semibold ${vendidoClass} text-sm`}>{vendidoLabel}</span>
+                        </div>
+                      </div>
                     </li>
                   );
                 })}
               </ul>
-              <div className="mt-2 text-sm">
-                <span className="font-medium">Total locales:</span> {showLocales ? `$${caja.total_locales?.toLocaleString("es-CL")}` : '••••••'}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 flex items-center justify-between">
+                  <span className="text-[var(--text-secondary-color)] inline-flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm" aria-hidden>storefront</span>
+                    Total en cajas (locales)
+                  </span>
+                  <span className="font-semibold">{showLocales ? formatCLP(totalLocalesSaldo) : '••••••'}</span>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 flex items-center justify-between">
+                  <span className="text-[var(--text-secondary-color)] inline-flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm" aria-hidden>insights</span>
+                    Total vendido (locales)
+                  </span>
+                  <span className="font-semibold">{showLocales ? formatCLP(totalLocalesVendido) : '••••••'}</span>
+                </div>
               </div>
             </div>
           )}
