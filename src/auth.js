@@ -9,8 +9,8 @@ let usersCache = null; // { users: Array<{ username, displayName?, salt?, pinHas
 
 export async function getUsers(force = false) {
   if (usersCache && !force) return usersCache.users || [];
-  const res = await apiFetch('/usuarios', { cache: 'no-cache' });
-  if (!res.ok) throw new Error(await res.text().catch(()=> 'No se pudo cargar usuarios'));
+  const res = await apiFetch('/api/users', { cache: 'no-cache' });
+  if (!res.ok) throw new Error(await res.text().catch(() => 'No se pudo cargar usuarios'));
   const data = await res.json();
   const users = Array.isArray(data) ? data : [];
   usersCache = { users };
@@ -19,8 +19,8 @@ export async function getUsers(force = false) {
 
 export async function login(username, pin) {
   if (!username || !pin) throw new Error('Usuario y PIN son requeridos');
-  const res = await apiFetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, pin }) });
-  if (!res.ok) throw new Error(await res.text().catch(()=> 'No se pudo iniciar sesión'));
+  const res = await apiFetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, pin }) });
+  if (!res.ok) throw new Error(await res.text().catch(() => 'No se pudo iniciar sesión'));
   const data = await res.json();
   localStorage.setItem(SESSION_KEY, JSON.stringify({ username: data.username, ts: Date.now(), displayName: data.displayName, role: data.role }));
   return { username: data.username };
@@ -57,7 +57,7 @@ export function isAdmin() {
     const raw = localStorage.getItem('auth_session_v1');
     if (!raw) return false;
     const s = JSON.parse(raw);
-    return s?.role === 'dev';
+    return s?.role === 'admin';
   } catch {
     return false;
   }

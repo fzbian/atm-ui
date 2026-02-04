@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Header from "../components/Header";
+import Layout from "../components/Layout";
 // import Preloader from "../components/Preloader";
 import ServerDown from "../components/ServerDown";
-import BottomNav from "../components/BottomNav";
 import { useLocation, useNavigate } from "react-router-dom";
 import { apiFetch, pingServer } from "../api";
 import { getUsers, getSessionUsername } from "../auth";
@@ -74,8 +73,75 @@ export default function Movements() {
   );
 
   const sections = useMemo(() => {
+    // 1. Grouping Logic for "Retiro Banco" (Cat 30 + Cat 20)
+    const processed = [];
+    const usedIds = new Set();
+    const sortedTxs = [...txs]; // Assumed sorted by date desc
+
+    sortedTxs.forEach((t, index) => {
+      if (usedIds.has(t.id)) return;
+
+      // Check if it's a Bank Withdrawal part
+      const catId = Number(t.categoria_id);
+
+      // Case: Retiro de Banco (Transferencia)
+      // We look for a pair: Cat 30 (Egreso from Caja 2) AND Cat 20 (Ingreso to Caja 1)
+      // They should be adjacent or very close, same amount, same user.
+      if (catId === 30 || catId === 20) {
+        // Try to find partner
+        const partnerCatId = catId === 30 ? 20 : 30;
+        // Look ahead (since sorted desc, timestamps are close)
+        // Usually created in same transaction, so index+1 or index is likely
+        let partner = null;
+        // Scan a small window of adjacent transactions (e.g., next 5)
+        for (let i = index + 1; i < Math.min(index + 5, sortedTxs.length); i++) {
+          const cand = sortedTxs[i];
+          if (usedIds.has(cand.id)) continue;
+          if (Number(cand.categoria_id) === partnerCatId &&
+            Math.abs(cand.monto - t.monto) < 0.01 &&
+            cand.usuario === t.usuario) {
+            partner = cand;
+            break;
+          }
+        }
+
+        if (partner) {
+          // Found a pair! Create a Merged Transaction
+          usedIds.add(t.id);
+          usedIds.add(partner.id);
+
+          // Determine which is which
+          const egreso = catId === 30 ? t : partner;
+          const ingreso = catId === 20 ? t : partner;
+
+          processed.push({
+            ...ingreso, // Base on Ingreso (positive feeling) but allow override
+            id: `merged-${egreso.id}-${ingreso.id}`,
+            isMerged: true,
+            realIds: [ingreso.id, egreso.id],
+            descripcion: "Retiro de efectivo desde Banco",
+            categoria_id: "TRANSFER_BANK", // Virtual ID
+            monto: ingreso.monto,
+            fecha: ingreso.fecha, // Use the latest (usually ingreso created 2nd or same time)
+            caja_id: "MIXED",
+            displayType: "TRANSFER",
+            details: {
+              egreso,
+              ingreso
+            }
+          });
+          return;
+        }
+      }
+
+      // Default: Individual transaction
+      usedIds.add(t.id);
+      processed.push(t);
+    });
+
+    // 2. Sectioning by Day
     const byDay = {};
-    txs.forEach((m) => {
+    processed.forEach((m) => {
       const key = m.fecha ? getYMDKeyCO(m.fecha) : "";
       if (!byDay[key]) byDay[key] = [];
       byDay[key].push(m);
@@ -97,7 +163,7 @@ export default function Movements() {
     return () => { cancelled = true; };
   }, []);
 
-  
+
 
   // Helpers
   const toggle = (id) => {
@@ -145,7 +211,7 @@ export default function Movements() {
         setCatMap(map);
         setCats(Array.isArray(catsArr) ? catsArr : []);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     apiFetch("/api/logs")
       .then((r) => {
@@ -165,17 +231,17 @@ export default function Movements() {
         });
         setLogsMap(grouped);
       })
-      .catch(() => {});
+      .catch(() => { });
 
-  // Cargar usuarios para filtro de usuario
+    // Cargar usuarios para filtro de usuario
     (async () => {
       try {
         const list = await getUsers();
         if (aborted) return;
-    const arr = Array.isArray(list) ? list : [];
-    const names = Array.from(new Set(arr.map(u => u.displayName).filter(Boolean)));
-    setUserNames(names);
-      } catch {}
+        const arr = Array.isArray(list) ? list : [];
+        const names = Array.from(new Set(arr.map(u => u.displayName).filter(Boolean)));
+        setUserNames(names);
+      } catch { }
     })();
 
     return () => { aborted = true; };
@@ -368,8 +434,8 @@ export default function Movements() {
       if (!res.ok) {
         if (res.status === 409 || res.status === 400) {
           let data = null;
-          try { data = await res.json(); } catch(_){}
-          const msg = (data && data.error) ? String(data.error) : (res.status===409 ? 'Conflicto de saldo o validación' : 'Solicitud inválida');
+          try { data = await res.json(); } catch (_) { }
+          const msg = (data && data.error) ? String(data.error) : (res.status === 409 ? 'Conflicto de saldo o validación' : 'Solicitud inválida');
           setEditError(msg);
           notify({ type: 'error', title: 'No se pudo actualizar', message: msg });
           return;
@@ -398,10 +464,10 @@ export default function Movements() {
           });
           setLogsMap(grouped);
         }
-      } catch {}
-    notifyMutation();
-    setToast("Transacción actualizada");
-    notify({ type: 'success', title: 'Actualización exitosa', message: 'La transacción fue actualizada.' });
+      } catch { }
+      notifyMutation();
+      setToast("Transacción actualizada");
+      notify({ type: 'success', title: 'Actualización exitosa', message: 'La transacción fue actualizada.' });
     } catch (e) {
       setEditError(e.message || "Error al actualizar");
       notify({ type: 'error', title: 'No se pudo actualizar', message: e.message || 'Error al actualizar' });
@@ -417,9 +483,9 @@ export default function Movements() {
     setDeleting(true);
     setProgressOpen(true);
     try {
-  const actor = await resolveActorName();
-  const qp = actor ? `?usuario=${encodeURIComponent(actor)}` : "";
-  const res = await apiFetch(`/api/transacciones/${confirmDelete.id}${qp}`, { method: "DELETE" });
+      const actor = await resolveActorName();
+      const qp = actor ? `?usuario=${encodeURIComponent(actor)}` : "";
+      const res = await apiFetch(`/api/transacciones/${confirmDelete.id}${qp}`, { method: "DELETE" });
       if (!res.ok) {
         const txt = await res.text();
         const errMsg = txt || 'Error al eliminar';
@@ -444,10 +510,10 @@ export default function Movements() {
           });
           setLogsMap(grouped);
         }
-      } catch {}
-    notifyMutation();
-    setToast("Transacción eliminada");
-  notify({ type: 'success', title: 'Eliminada', message: `La transacción fue eliminada (${formatCLP(confirmDelete.monto)}).` });
+      } catch { }
+      notifyMutation();
+      setToast("Transacción eliminada");
+      notify({ type: 'success', title: 'Eliminada', message: `La transacción fue eliminada (${formatCLP(confirmDelete.monto)}).` });
     } catch (e) {
       setToast(e.message || "Error al eliminar");
       notify({ type: 'error', title: 'No se pudo eliminar', message: e.message || 'Error al eliminar' });
@@ -461,30 +527,19 @@ export default function Movements() {
   // Render
   if (timedOutChecking) {
     return (
-      <div className="min-h-screen bg-[var(--background-color)] text-[var(--text-color)] flex flex-col">
-        <Header title="Movimientos" />
+      <Layout title="Movimientos">
         <ServerDown onRetry={async () => {
           setChecking(true);
           const ok = await pingServer();
           setServerOk(ok);
           setChecking(false);
         }} />
-        <BottomNav
-          onHome={() => navigate('/dashboard')}
-          onMovements={() => navigate('/movements')}
-          onWallet={() => navigate('/wallet')}
-          onReports={() => navigate('/reports')}
-          onAddIncome={() => navigate('/new?tipo=INGRESO')}
-          onAddExpense={() => navigate('/new?tipo=EGRESO')}
-          onCashout={() => navigate('/cashout')}
-          active="movs"
-        />
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background-color)] text-[var(--text-color)] flex flex-col">
+    <Layout title="Movimientos">
       {toast && (
         <div className="fixed top-3 inset-x-0 z-40 flex justify-center px-4">
           <div className="max-w-md w-full bg-[var(--card-color)] border border-[var(--border-color)] text-[var(--text-color)] rounded-xl shadow-lg px-4 py-3 flex items-center gap-2">
@@ -493,8 +548,7 @@ export default function Movements() {
           </div>
         </div>
       )}
-      <Header title="Movimientos" />
-      <main className="flex-1 p-6 space-y-6 pb-[calc(env(safe-area-inset-bottom)+6rem)] view-enter view-enter-active">
+      <div className="space-y-6 view-enter view-enter-active">
         {/* Barra de filtros */}
         <section className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)]">
           <div className="p-4 flex items-center justify-between gap-2">
@@ -537,7 +591,7 @@ export default function Movements() {
             <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-[var(--text-secondary-color)] mb-1">Límite</label>
-                <select value={fLimit} onChange={(e)=>setFLimit(e.target.value)} className="w-full bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm">
+                <select value={fLimit} onChange={(e) => setFLimit(e.target.value)} className="w-full bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm">
                   <option value="">Sin límite</option>
                   <option value="10">10</option>
                   <option value="20">20</option>
@@ -547,7 +601,7 @@ export default function Movements() {
               </div>
               <div>
                 <label className="block text-xs text-[var(--text-secondary-color)] mb-1">Usuario</label>
-                <select value={fUsuario} onChange={(e)=>setFUsuario(e.target.value)} className="w-full bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm">
+                <select value={fUsuario} onChange={(e) => setFUsuario(e.target.value)} className="w-full bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm">
                   <option value="">Todos</option>
                   {userNames.map(name => (
                     <option key={name} value={name}>{name}</option>
@@ -558,11 +612,11 @@ export default function Movements() {
                 <label className="block text-xs text-[var(--text-secondary-color)] mb-1">Tipo</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    {k: "", label: "Todos", icon: "all_inclusive"},
-                    {k: "INGRESO", label: "Ingreso", icon: "arrow_upward"},
-                    {k: "EGRESO", label: "Egreso", icon: "arrow_downward"},
+                    { k: "", label: "Todos", icon: "all_inclusive" },
+                    { k: "INGRESO", label: "Ingreso", icon: "arrow_upward" },
+                    { k: "EGRESO", label: "Egreso", icon: "arrow_downward" },
                   ].map((t) => (
-                    <button key={t.k} type="button" onClick={()=>setFTipo(t.k)} className={`p-2 rounded-lg border text-sm flex items-center justify-center gap-1 ${fTipo===t.k ? 'border-[var(--primary-color)] bg-white/5' : 'border-[var(--border-color)] hover:bg-white/5'}`}>
+                    <button key={t.k} type="button" onClick={() => setFTipo(t.k)} className={`p-2 rounded-lg border text-sm flex items-center justify-center gap-1 ${fTipo === t.k ? 'border-[var(--primary-color)] bg-white/5' : 'border-[var(--border-color)] hover:bg-white/5'}`}>
                       <span className="material-symbols-outlined !text-base">{t.icon}</span>
                       {t.label}
                     </button>
@@ -572,8 +626,8 @@ export default function Movements() {
               <div>
                 <label className="block text-xs text-[var(--text-secondary-color)] mb-1">Caja</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {[{k:"",label:"Todas",icon:"all_inclusive"},{k:"1",label:"Efectivo",icon:"account_balance_wallet"},{k:"2",label:"Cuenta bancaria",icon:"account_balance"}].map(o => (
-                    <button key={o.k+o.label} type="button" onClick={()=>setFCajaId(o.k)} className={`p-2 rounded-lg border text-sm flex items-center justify-center gap-1 ${fCajaId===o.k ? 'border-[var(--primary-color)] bg-white/5' : 'border-[var(--border-color)] hover:bg-white/5'}`}>
+                  {[{ k: "", label: "Todas", icon: "all_inclusive" }, { k: "1", label: "Efectivo", icon: "account_balance_wallet" }, { k: "2", label: "Cuenta bancaria", icon: "account_balance" }].map(o => (
+                    <button key={o.k + o.label} type="button" onClick={() => setFCajaId(o.k)} className={`p-2 rounded-lg border text-sm flex items-center justify-center gap-1 ${fCajaId === o.k ? 'border-[var(--primary-color)] bg-white/5' : 'border-[var(--border-color)] hover:bg-white/5'}`}>
                       <span className="material-symbols-outlined !text-base">{o.icon}</span>
                       {o.label}
                     </button>
@@ -582,17 +636,17 @@ export default function Movements() {
               </div>
               <div>
                 <label className="block text-xs text-[var(--text-secondary-color)] mb-1">Desde</label>
-                <input type="date" value={fFrom} onChange={(e)=>setFFrom(e.target.value)} className="w-full bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm" />
+                <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} className="w-full bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
                 <label className="block text-xs text-[var(--text-secondary-color)] mb-1">Hasta</label>
-                <input type="date" value={fTo} onChange={(e)=>setFTo(e.target.value)} className="w-full bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm" />
+                <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} className="w-full bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm" />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs text-[var(--text-secondary-color)] mb-1">Texto en descripción</label>
                 <div className="flex items-center gap-2 bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3">
                   <span className="material-symbols-outlined text-[var(--text-secondary-color)]">search</span>
-                  <input value={fDesc} onChange={(e)=>setFDesc(e.target.value)} placeholder="Ej. pago, venta, etc." className="flex-1 bg-transparent outline-none py-2 text-sm" />
+                  <input value={fDesc} onChange={(e) => setFDesc(e.target.value)} placeholder="Ej. pago, venta, etc." className="flex-1 bg-transparent outline-none py-2 text-sm" />
                 </div>
               </div>
               {filterError && <p className="sm:col-span-2 text-xs text-red-500">{filterError}</p>}
@@ -654,31 +708,31 @@ export default function Movements() {
           timedOutTxs ? (
             <ServerDown onRetry={() => loadTxs(appliedFilters)} />
           ) : (
-          <div className="space-y-6 animate-pulse">
-            {Array.from({ length: 3 }).map((_, sIdx) => (
-              <section key={sIdx}>
-                <div className="h-4 w-40 bg-white/10 rounded mb-2" />
-                <ul className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] divide-y divide-[var(--border-color)]">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <li key={i} className="px-4 py-3 flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-full bg-white/10" />
-                      <div className="flex-1 min-w-0">
-                        <div className="h-4 w-2/3 bg-white/10 rounded mb-2" />
-                        <div className="h-3 w-40 bg-white/10 rounded" />
-                      </div>
-                      <div className="h-4 w-16 bg-white/10 rounded" />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
+            <div className="space-y-6 animate-pulse">
+              {Array.from({ length: 3 }).map((_, sIdx) => (
+                <section key={sIdx}>
+                  <div className="h-4 w-40 bg-white/10 rounded mb-2" />
+                  <ul className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] divide-y divide-[var(--border-color)]">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <li key={i} className="px-4 py-3 flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-full bg-white/10" />
+                        <div className="flex-1 min-w-0">
+                          <div className="h-4 w-2/3 bg-white/10 rounded mb-2" />
+                          <div className="h-3 w-40 bg-white/10 rounded" />
+                        </div>
+                        <div className="h-4 w-16 bg-white/10 rounded" />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
           )
         ) : error ? (
           <p className="text-red-500">{error}</p>
         ) : txs.length === 0 ? (
           <p className="text-[var(--text-secondary-color)]">Sin movimientos</p>
-  ) : (
+        ) : (
           <div className="space-y-6">
             {sections.map(({ day, items }) => (
               <section key={day} className="">
@@ -687,16 +741,44 @@ export default function Movements() {
                 </h3>
                 <ul className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] divide-y divide-[var(--border-color)]">
                   {items.map((m) => {
-                    const cat = catMap[m.categoria_id];
-                    const tipo = cat?.tipo;
-                    const isIngreso = tipo === "INGRESO";
-                    const tipoColor = isIngreso
-                      ? "text-[var(--success-color)]"
-                      : tipo === "EGRESO"
-                      ? "text-[var(--danger-color)]"
-                      : "text-[var(--text-secondary-color)]";
-                    const iconName = isIngreso ? "arrow_upward" : tipo === "EGRESO" ? "arrow_downward" : "swap_vert";
-                    const bubbleBg = isIngreso ? "bg-green-900/40" : tipo === "EGRESO" ? "bg-red-900/40" : "bg-slate-700/40";
+                    const catId = m.isMerged ? m.categoria_id : Number(m.categoria_id);
+                    let cat = catMap[catId] || catMap[Number(m.categoria_id)];
+
+                    // Logic for Merged/Virtual items
+                    let isIngreso, tipo, tipoColor, iconName, bubbleBg;
+
+                    if (m.isMerged && catId === "TRANSFER_BANK") {
+                      // Merged Card Style
+                      tipo = "TRANSFER";
+                      isIngreso = true; // For positive visual alignment (User got cash)
+                      tipoColor = "text-blue-400"; // Distinctive Blue for Transfer
+                      iconName = "currency_exchange"; // Or 'sync_alt'
+                      bubbleBg = "bg-blue-900/30 border border-blue-500/30";
+                      cat = { nombre: "Retiro de efectivo", tipo: "TRANSFER" };
+                    } else {
+                      // Standard Items
+                      cat = catMap[catId];
+                      tipo = cat?.tipo;
+                      isIngreso = tipo === "INGRESO";
+
+                      // Default Colors (Green/Red as requested)
+                      tipoColor = isIngreso
+                        ? "text-[var(--success-color)]"
+                        : tipo === "EGRESO"
+                          ? "text-[var(--danger-color)]"
+                          : "text-[var(--text-secondary-color)]";
+
+                      bubbleBg = isIngreso ? "bg-green-900/30" : tipo === "EGRESO" ? "bg-red-900/30" : "bg-slate-700/30";
+                      iconName = isIngreso ? "arrow_upward" : tipo === "EGRESO" ? "arrow_downward" : "swap_vert";
+
+                      // Custom Icons (Colors stay standard)
+                      if (catId === 16) {
+                        // POS Cashout -> Ingreso (Green) but Store Icon
+                        iconName = "storefront";
+                        // Optional: subtle variation in bg?
+                        // bubbleBg = "bg-emerald-900/40"; 
+                      }
+                    }
 
                     const logs = logsMap[m.id] || [];
                     const open = expanded.has(m.id);
@@ -729,7 +811,7 @@ export default function Movements() {
                               </span>
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] text-[var(--text-secondary-color)] px-2 py-0.5 rounded-full border border-[var(--border-color)] bg-[var(--dark-color)]">
-                                  {Number(m.caja_id) === 1 ? 'Efectivo' : Number(m.caja_id) === 2 ? 'Cuenta bancaria' : `Caja #${m.caja_id}`}
+                                  {m.isMerged ? 'Banco → Efectivo' : (Number(m.caja_id) === 1 ? 'Efectivo' : Number(m.caja_id) === 2 ? 'Cuenta bancaria' : `Caja #${m.caja_id}`)}
                                 </span>
                                 {tipo && <p className={`text-[10px] ${tipoColor}`}>{tipo}</p>}
                               </div>
@@ -778,7 +860,7 @@ export default function Movements() {
                                         {cat?.nombre || `Cat #${m.categoria_id}`}
                                       </span>
                                       <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--border-color)] bg-[var(--dark-color)] text-[var(--text-secondary-color)]">
-                                        {Number(m.caja_id) === 1 ? 'Efectivo' : Number(m.caja_id) === 2 ? 'Cuenta bancaria' : `Caja #${m.caja_id}`}
+                                        {m.isMerged ? 'Banco → Efectivo' : (Number(m.caja_id) === 1 ? 'Efectivo' : Number(m.caja_id) === 2 ? 'Cuenta bancaria' : `Caja #${m.caja_id}`)}
                                       </span>
                                       {tipo && (
                                         <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-[var(--border-color)] bg-[var(--dark-color)] ${tipoColor}`}>
@@ -880,7 +962,7 @@ export default function Movements() {
                   <h4 className="font-medium">Ajustar límite de movimientos</h4>
                 </div>
                 <div className="flex items-center gap-2">
-                  <select value={fLimit} onChange={(e)=>setFLimit(e.target.value)} className="bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm">
+                  <select value={fLimit} onChange={(e) => setFLimit(e.target.value)} className="bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm">
                     <option value="10">10</option>
                     <option value="20">20</option>
                     <option value="50">50</option>
@@ -889,7 +971,7 @@ export default function Movements() {
                   </select>
                   <button
                     className="px-3 py-2 rounded-lg bg-[var(--primary-color)] text-white hover:opacity-90 disabled:opacity-60 flex items-center gap-2"
-                    onClick={()=>{
+                    onClick={() => {
                       const next = {
                         ...(appliedFilters || {}),
                         limit: fLimit ? Number(fLimit) : undefined,
@@ -907,7 +989,7 @@ export default function Movements() {
             </section>
           </div>
         )}
-  </main>
+      </div>
       {/* Overlay de edición */}
       {editTx && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4" onClick={() => setEditTx(null)}>
@@ -916,44 +998,44 @@ export default function Movements() {
             <p className="text-xs text-[var(--text-secondary-color)] mb-3">Selecciona qué campos deseas actualizar.</p>
             <div className="space-y-3">
               <label className="flex items-center gap-2">
-                <input type="checkbox" checked={selDesc} onChange={(e)=>setSelDesc(e.target.checked)} />
+                <input type="checkbox" checked={selDesc} onChange={(e) => setSelDesc(e.target.checked)} />
                 <span className="text-sm">Descripción</span>
               </label>
               {selDesc && (
                 <div className="flex items-center gap-2 bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3">
                   <span className="material-symbols-outlined text-[var(--text-secondary-color)]">subject</span>
-                  <input className="flex-1 bg-transparent outline-none py-2 text-sm" value={editDescripcion} onChange={(e)=>setEditDescripcion(e.target.value)} />
+                  <input className="flex-1 bg-transparent outline-none py-2 text-sm" value={editDescripcion} onChange={(e) => setEditDescripcion(e.target.value)} />
                 </div>
               )}
               <label className="flex items-center gap-2">
-                <input type="checkbox" checked={selMonto} onChange={(e)=>setSelMonto(e.target.checked)} />
+                <input type="checkbox" checked={selMonto} onChange={(e) => setSelMonto(e.target.checked)} />
                 <span className="text-sm">Monto</span>
               </label>
               {selMonto && (
                 <div className="flex items-center gap-2 bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3">
                   <span className="material-symbols-outlined text-[var(--text-secondary-color)]">attach_money</span>
-                  <input type="number" min="0" step="1" className="flex-1 bg-transparent outline-none py-2 text-sm" value={editMonto} onChange={(e)=>setEditMonto(e.target.value)} />
+                  <input type="number" min="0" step="1" className="flex-1 bg-transparent outline-none py-2 text-sm" value={editMonto} onChange={(e) => setEditMonto(e.target.value)} />
                 </div>
               )}
               <label className="flex items-center gap-2">
-                <input type="checkbox" checked={selCat} onChange={(e)=>setSelCat(e.target.checked)} />
+                <input type="checkbox" checked={selCat} onChange={(e) => setSelCat(e.target.checked)} />
                 <span className="text-sm">Categoría / Tipo</span>
               </label>
               {selCat && (
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
-                    {['INGRESO','EGRESO'].map(t => (
-                      <button key={t} type="button" className={`flex items-center justify-center gap-2 p-2 rounded-lg border ${editTipo===t? (t==='EGRESO'? 'border-[var(--danger-color)] bg-red-900/20 text-[var(--danger-color)]' : 'border-[var(--success-color)] bg-green-900/20 text-[var(--success-color)]') : 'border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5'}`} onClick={()=>setEditTipo(t)}>
-                        <span className="material-symbols-outlined">{t==='EGRESO'?'arrow_downward':'arrow_upward'}</span>
+                    {['INGRESO', 'EGRESO'].map(t => (
+                      <button key={t} type="button" className={`flex items-center justify-center gap-2 p-2 rounded-lg border ${editTipo === t ? (t === 'EGRESO' ? 'border-[var(--danger-color)] bg-red-900/20 text-[var(--danger-color)]' : 'border-[var(--success-color)] bg-green-900/20 text-[var(--success-color)]') : 'border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5'}`} onClick={() => setEditTipo(t)}>
+                        <span className="material-symbols-outlined">{t === 'EGRESO' ? 'arrow_downward' : 'arrow_upward'}</span>
                         {t}
                       </button>
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-2 max-h-48 overflow-auto">
                     {filteredEditCats.map(c => (
-                      <label key={c.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer ${Number(editCategoriaId)===c.id? 'border-[var(--primary-color)] bg-white/5':'border-[var(--border-color)] hover:bg-white/5'}`}>
-                        <input type="radio" name="editCat" className="sr-only" checked={Number(editCategoriaId)===c.id} onChange={()=>setEditCategoriaId(String(c.id))} />
-                        <span className={`material-symbols-outlined ${c.tipo==='INGRESO'?'text-[var(--success-color)]':'text-[var(--danger-color)]'}`}>{c.tipo==='INGRESO'?'trending_up':'trending_down'}</span>
+                      <label key={c.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer ${Number(editCategoriaId) === c.id ? 'border-[var(--primary-color)] bg-white/5' : 'border-[var(--border-color)] hover:bg-white/5'}`}>
+                        <input type="radio" name="editCat" className="sr-only" checked={Number(editCategoriaId) === c.id} onChange={() => setEditCategoriaId(String(c.id))} />
+                        <span className={`material-symbols-outlined ${c.tipo === 'INGRESO' ? 'text-[var(--success-color)]' : 'text-[var(--danger-color)]'}`}>{c.tipo === 'INGRESO' ? 'trending_up' : 'trending_down'}</span>
                         <span className="text-sm">{c.nombre}</span>
                       </label>
                     ))}
@@ -966,7 +1048,7 @@ export default function Movements() {
               {editError && <p className="text-xs text-red-500">{editError}</p>}
             </div>
             <div className="mt-4 flex gap-2">
-              <button className="flex-1 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5" onClick={()=>setEditTx(null)} disabled={updating}>Cancelar</button>
+              <button className="flex-1 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5" onClick={() => setEditTx(null)} disabled={updating}>Cancelar</button>
               <button className="flex-1 py-2 rounded-lg bg-[var(--primary-color)] text-white hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2" onClick={performUpdate} disabled={updating}>
                 {updating && <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden />}
                 Guardar cambios
@@ -983,7 +1065,7 @@ export default function Movements() {
             <p className="text-sm mb-3">¿Seguro que deseas eliminar "{confirmDelete.descripcion}" por ${formatMoney(confirmDelete.monto)}?</p>
             <div className="text-xs text-amber-400 flex items-center gap-1 mb-4"><span className="material-symbols-outlined !text-sm">warning</span>Eliminar esta transacción modificará el saldo de caja.</div>
             <div className="flex gap-2">
-              <button className="flex-1 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5" onClick={()=>setConfirmDelete(null)} disabled={deleting}>Cancelar</button>
+              <button className="flex-1 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary-color)] hover:bg-white/5" onClick={() => setConfirmDelete(null)} disabled={deleting}>Cancelar</button>
               <button className="flex-1 py-2 rounded-lg bg-[var(--danger-color)] text-white hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2" onClick={performDelete} disabled={deleting}>
                 {deleting && <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden />}
                 Eliminar
@@ -1001,16 +1083,6 @@ export default function Movements() {
           </div>
         </div>
       )}
-      <BottomNav
-        onHome={() => navigate('/dashboard')}
-        onMovements={() => navigate('/movements')}
-        onWallet={() => navigate('/wallet')}
-  onReports={() => navigate('/reports')}
-  onCreateMovement={() => navigate('/new')}
-        onCashout={() => navigate('/cashout')}
-        onCashoutBank={() => navigate('/cashout-bank')}
-        active="movs"
-      />
-    </div>
+    </Layout>
   );
 }

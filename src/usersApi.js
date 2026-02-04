@@ -3,8 +3,8 @@ import { apiFetch } from './api';
 
 // Users API: siempre vía apiFetch para respetar apiBase de config.json
 async function req(path, options) {
-  const res = await apiFetch(`/usuarios${path || ''}`, options);
-  if (!res.ok) throw new Error(await res.text().catch(()=> res.statusText || 'error'));
+  const res = await apiFetch(`/api/users${path || ''}`, options);
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText || 'error'));
   return res;
 }
 
@@ -16,8 +16,8 @@ export async function loadUsers() {
 }
 
 export async function createUser(user) {
-  if (!user?.username || !user?.displayName) throw new Error('Datos incompletos');
-  const body = { username: user.username, displayName: user.displayName, pin: user.pin || null, role: user.role || 'user' };
+  if (!user?.username || !user?.name) throw new Error('Datos incompletos');
+  const body = { username: user.username, name: user.name, pin: user.pin || null, role: user.role || 'user' };
   await req('', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 }
 
@@ -32,4 +32,10 @@ export async function deleteUser(username) {
   if (!username) throw new Error('Usuario requerido');
   const actor = getSessionUsername();
   await req(`/${encodeURIComponent(username)}`, { method: 'DELETE', headers: { 'X-Actor-Username': actor || '' } });
+}
+
+export async function syncUsers() {
+  const res = await apiFetch('/api/users/sync', { method: 'POST' });
+  if (!res.ok) throw new Error(await res.text().catch(() => 'Error sincronizando usuarios'));
+  return await res.json();
 }

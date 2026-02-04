@@ -1,7 +1,28 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-export default function BottomNav({ onCreateMovement, onAddIncome, onAddExpense, onCashout, onCashoutBank, onHome, onReports, onMovements, onWallet, active = "home" }) {
+export default function BottomNav({
+  onCreateMovement,
+  onAddIncome,
+  onAddExpense,
+  onCashout,
+  onCashoutBank,
+  onHome,
+  onReports,
+  onMovements,
+  onWallet,
+  onGastos,
+  onPedidos,
+  active = "home"
+}) {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+
+  // Helper for navigation defaults
+  const navTo = (handler, path) => () => {
+    if (handler) handler();
+    else navigate(path);
+  };
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-30">
@@ -28,10 +49,11 @@ export default function BottomNav({ onCreateMovement, onAddIncome, onAddExpense,
                   if (onCreateMovement) {
                     onCreateMovement();
                   } else if (onAddIncome) {
-                    // fallback mínimo
                     onAddIncome();
                   } else if (onAddExpense) {
                     onAddExpense();
+                  } else {
+                    navigate('/new');
                   }
                   setOpen(false);
                 }}
@@ -40,14 +62,14 @@ export default function BottomNav({ onCreateMovement, onAddIncome, onAddExpense,
                 <span className="text-base font-medium text-[var(--text-color)]">Realizar movimiento</span>
               </button>
 
-              {/* Separador */}
               <div className="h-px bg-[var(--border-color)] my-1" />
 
               {/* Retirar efectivo en punto */}
               <button
                 className="w-full max-w-sm flex items-center justify-center gap-3 p-4 rounded-xl border border-transparent bg-[#2563eb] text-white transition-colors duration-150 hover:brightness-110 active:scale-[0.98]"
                 onClick={() => {
-                  onCashout && onCashout();
+                  if (onCashout) onCashout();
+                  else navigate('/cashout');
                   setOpen(false);
                 }}
               >
@@ -59,7 +81,8 @@ export default function BottomNav({ onCreateMovement, onAddIncome, onAddExpense,
               <button
                 className="w-full max-w-sm flex items-center justify-center gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--background-color)] transition-colors duration-150 hover:bg-white/5 active:scale-[0.98]"
                 onClick={() => {
-                  onCashoutBank && onCashoutBank();
+                  if (onCashoutBank) onCashoutBank();
+                  else navigate('/cashout-bank');
                   setOpen(false);
                 }}
               >
@@ -72,55 +95,61 @@ export default function BottomNav({ onCreateMovement, onAddIncome, onAddExpense,
       </div>
 
       {/* Nav bar */}
-      <nav className="relative overflow-visible border-t border-[var(--border-color)] bg-[var(--card-color)]/90 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
-    <div className="h-16 grid grid-cols-5 items-center">
+      <nav className="relative overflow-visible border-t border-[var(--border-color)] bg-[var(--card-color)]/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
+        {/* Usamos grid-cols-7 para acomodar los nuevos items */}
+        <div className="h-16 grid grid-cols-7 items-center max-w-2xl mx-auto">
+
           <button
-      className={`flex items-center justify-center transition-colors ${active === 'home' ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary-color)] hover:text-[var(--primary-color)]'}`}
-      onClick={onHome}
-      aria-label="Inicio"
-      title="Inicio"
+            className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${active === 'home' ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary-color)] hover:text-[var(--primary-color)]'}`}
+            onClick={navTo(onHome, '/dashboard')}
           >
-      <span className="material-symbols-outlined">home</span>
+            <span className="material-symbols-outlined text-2xl">home</span>
+            {/* <span className="text-[9px] font-medium">Inicio</span> */}
           </button>
 
           <button
-      className={`flex items-center justify-center ${active === 'movs' ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary-color)] hover:text-[var(--primary-color)]'}`}
-      onClick={onMovements}
-      aria-label="Movimientos"
-      title="Movimientos"
+            className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${active === 'movs' ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary-color)] hover:text-[var(--primary-color)]'}`}
+            onClick={navTo(onMovements, '/movements')}
           >
-            <span className="material-symbols-outlined">receipt_long</span>
+            <span className="material-symbols-outlined text-2xl">receipt_long</span>
           </button>
 
-          {/* FAB */}
-      <div className="relative flex items-center justify-center">
+          <button
+            className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${active === 'gastos' ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary-color)] hover:text-[var(--primary-color)]'}`}
+            onClick={navTo(onGastos, '/gastos')}
+          >
+            <span className="material-symbols-outlined text-2xl">receipt</span>
+          </button>
+
+          {/* FAB Center */}
+          <div className="relative flex items-center justify-center -mt-6">
             <button
-        className={`absolute -top-12 h-16 w-16 rounded-full bg-[var(--primary-color)] text-white shadow-2xl ring-4 ring-[var(--card-color)] border border-[color:rgba(255,255,255,0.15)] flex items-center justify-center transform-gpu transition-transform duration-200 ${open ? 'scale-100 rotate-45' : 'hover:scale-105 active:scale-95'} z-10`}
-        onClick={() => setOpen(!open)}
-              aria-label={open ? "Cerrar" : "Agregar"}
-        aria-expanded={open}
-        aria-controls="fab-sheet"
+              className={`h-14 w-14 rounded-full bg-[var(--primary-color)] text-white shadow-lg ring-4 ring-[var(--card-color)] border border-white/10 flex items-center justify-center transform-gpu transition-all duration-200 ${open ? 'scale-100 rotate-45 bg-red-500' : 'hover:scale-105 active:scale-95'} z-10`}
+              onClick={() => setOpen(!open)}
             >
-        <span className="material-symbols-outlined !text-4xl">add</span>
+              <span className="material-symbols-outlined !text-3xl">add</span>
             </button>
           </div>
 
           <button
-            className={`flex items-center justify-center ${active === 'wallet' ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary-color)] hover:text-[var(--primary-color)]'}`}
-            onClick={onWallet}
-            aria-label="Cartera"
-            title="Cartera"
+            className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${active === 'pedidos' ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary-color)] hover:text-[var(--primary-color)]'}`}
+            onClick={navTo(onPedidos, '/pedidos')}
           >
-            <span className="material-symbols-outlined">account_balance_wallet</span>
+            <span className="material-symbols-outlined text-2xl">shopping_cart</span>
           </button>
 
           <button
-            className={`flex items-center justify-center transition-colors ${active === 'reports' ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary-color)] hover:text-[var(--primary-color)]'}`}
-            onClick={onReports}
-            aria-label="Reportes"
-            title="Reportes"
+            className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${active === 'wallet' ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary-color)] hover:text-[var(--primary-color)]'}`}
+            onClick={navTo(onWallet, '/wallet')}
           >
-            <span className="material-symbols-outlined">bar_chart</span>
+            <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
+          </button>
+
+          <button
+            className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${active === 'reports' ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary-color)] hover:text-[var(--primary-color)]'}`}
+            onClick={navTo(onReports, '/reports')}
+          >
+            <span className="material-symbols-outlined text-2xl">bar_chart</span>
           </button>
         </div>
       </nav>

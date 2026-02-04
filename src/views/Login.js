@@ -4,10 +4,12 @@ import { login, isAuthenticated, getUsers } from "../auth";
 import useTitle from "../useTitle";
 import useTimeout from "../useTimeout";
 import ServerDown from "../components/ServerDown";
+import { useRole } from "../context/RoleContext";
 
 export default function Login() {
   const navigate = useNavigate();
   useTitle("Ingresar · ATM Ricky Rich");
+  const { reloadConfig } = useRole();
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,8 +57,9 @@ export default function Login() {
     setLoading(true);
     try {
       await login(username.trim(), pin.trim());
-  const dest = location.state?.from?.pathname || '/dashboard';
-  navigate(dest, { replace: true });
+      await reloadConfig(); // Force role reload from session
+      const dest = location.state?.from?.pathname || '/dashboard';
+      navigate(dest, { replace: true });
     } catch (err) {
       setError(err.message || 'Error');
     } finally {
@@ -92,7 +95,7 @@ export default function Login() {
                   <select
                     className="no-caret flex-1 bg-transparent outline-none py-3 pr-8 text-sm"
                     value={username}
-                    onChange={(e)=>setUsername(e.target.value)}
+                    onChange={(e) => setUsername(e.target.value)}
                     aria-label="Seleccionar usuario"
                   >
                     {users.map(u => (
@@ -114,7 +117,7 @@ export default function Login() {
                 type="password"
                 className="flex-1 bg-transparent outline-none py-2 text-sm"
                 value={pin}
-                onChange={(e)=> setPin(e.target.value.replace(/\D/g, '').slice(0,8))}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
                 placeholder="****"
                 inputMode="numeric"
                 autoComplete="current-password"

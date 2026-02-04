@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import Header from "../components/Header";
+import Layout from "../components/Layout";
 // import Preloader from "../components/Preloader";
 import ServerDown from "../components/ServerDown";
-import BottomNav from "../components/BottomNav";
 import { useNavigate } from "react-router-dom";
 import { apiFetch, pingServer } from "../api";
 import useTitle from "../useTitle";
@@ -91,7 +90,7 @@ export default function Reports() {
         }, {});
         setCatMap(map);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { ignore = true; };
   }, [serverOk]);
 
@@ -275,8 +274,7 @@ export default function Reports() {
   }, [fromDate, toDate, ingresos, egresos, count, daily.rows]);
 
   return (
-    <div className="min-h-screen bg-[var(--background-color)] text-[var(--text-color)] flex flex-col">
-      <Header title="Reportes" />
+    <Layout title="Reportes">
       {timedOutChecking ? (
         <ServerDown onRetry={async () => {
           setChecking(true);
@@ -285,212 +283,189 @@ export default function Reports() {
           setChecking(false);
         }} />
       ) : checking ? (
-        <>
-          <main className="flex-1 p-6 space-y-6 pb-[calc(env(safe-area-inset-bottom)+6rem)] view-enter view-enter-active">
-            <section className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4 animate-pulse">
-              <div className="h-4 w-32 bg-white/10 rounded mb-3" />
-              <div className="h-24 w-full bg-white/10 rounded" />
-            </section>
-            <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4 animate-pulse">
-                  <div className="h-3 w-20 bg-white/10 rounded mb-2" />
-                  <div className="h-6 w-24 bg-white/10 rounded" />
-                </div>
-              ))}
-            </section>
-          </main>
-          <BottomNav
-            onHome={() => navigate('/dashboard')}
-            onMovements={() => navigate('/movements')}
-            onWallet={() => navigate('/wallet')}
-            onReports={() => navigate('/reports')}
-            onCreateMovement={() => navigate('/new')}
-            onCashout={() => navigate('/cashout')}
-            onCashoutBank={() => navigate('/cashout-bank')}
-            active="reports"
-          />
-        </>
-      ) : serverOk === false ? (
-        <>
-          <ServerDown onRetry={async () => {
-            setChecking(true);
-            const ok = await pingServer();
-            setServerOk(ok);
-            setChecking(false);
-          }} />
-          <BottomNav
-            onHome={() => navigate('/dashboard')}
-            onMovements={() => navigate('/movements')}
-            onWallet={() => navigate('/wallet')}
-            onReports={() => navigate('/reports')}
-            onCreateMovement={() => navigate('/new')}
-            onCashout={() => navigate('/cashout')}
-             onCashoutBank={() => navigate('/cashout-bank')}
-            active="reports"
-          />
-        </>
-      ) : (
-        <>
-          <main className="flex-1 p-6 space-y-6 pb-[calc(env(safe-area-inset-bottom)+6rem)] view-enter view-enter-active">
-            {/* Selector de periodo */}
-            <section className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[var(--text-secondary-color)]">calendar_month</span>
-                  <h3 className="font-semibold">Periodo</h3>
-                </div>
-                <div className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--dark-color)] p-1">
-                  <button
-                    className={`px-4 py-1.5 rounded-full text-sm transition ${mode === 'month' ? 'bg-[var(--primary-color)] text-white' : 'text-[var(--text-secondary-color)] hover:text-white'}`}
-                    aria-pressed={mode === 'month'}
-                    onClick={() => setMode('month')}
-                  >
-                    Mes
-                  </button>
-                  <button
-                    className={`px-4 py-1.5 rounded-full text-sm transition ${mode === 'range' ? 'bg-[var(--primary-color)] text-white' : 'text-[var(--text-secondary-color)] hover:text-white'}`}
-                    aria-pressed={mode === 'range'}
-                    onClick={() => setMode('range')}
-                  >
-                    Rango
-                  </button>
-                </div>
-
-                {mode === 'month' ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <button className="px-3 py-2 rounded-lg border border-[var(--border-color)] hover:bg-white/5" onClick={() => changeMonth(-1)} aria-label="Mes anterior">
-                        <span className="material-symbols-outlined">chevron_left</span>
-                      </button>
-                      <div className="text-center text-sm">
-                        <p className="font-semibold capitalize">{monthLabel}</p>
-                        <p className="text-[var(--text-secondary-color)]">Reporte mensual</p>
-                      </div>
-                      <button className="px-3 py-2 rounded-lg border border-[var(--border-color)] hover:bg-white/5" onClick={() => changeMonth(1)} aria-label="Mes siguiente">
-                        <span className="material-symbols-outlined">chevron_right</span>
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 flex-wrap">
-                      <input
-                        type="month"
-                        value={month}
-                        onChange={(e) => setMonth(e.target.value)}
-                        className="bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm"
-                        aria-label="Seleccionar mes"
-                      />
-                      <button className="px-3 py-2 rounded-lg border border-[var(--border-color)] hover:bg-white/5 text-sm" onClick={() => setMonth(defaultMonth)}>Este mes</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-3 w-full">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs text-[var(--text-secondary-color)]" htmlFor="fromDate">Desde</label>
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[var(--text-secondary-color)]">event</span>
-                          <input
-                            id="fromDate"
-                            type="date"
-                            value={fromDate}
-                            max={toDate || undefined}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setFromDate(v);
-                              if (toDate && v > toDate) setToDate(v);
-                            }}
-                            className="flex-1 bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs text-[var(--text-secondary-color)]" htmlFor="toDate">Hasta</label>
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[var(--text-secondary-color)]">event_available</span>
-                          <input
-                            id="toDate"
-                            type="date"
-                            value={toDate}
-                            min={fromDate || undefined}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setToDate(v);
-                              if (fromDate && v < fromDate) setFromDate(v);
-                            }}
-                            className="flex-1 bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 flex-wrap">
-                      <button onClick={() => applyPreset('7d')} className="px-3 py-1.5 rounded-full border border-[var(--border-color)] text-xs hover:bg-white/5">Últimos 7 días</button>
-                      <button onClick={() => applyPreset('30d')} className="px-3 py-1.5 rounded-full border border-[var(--border-color)] text-xs hover:bg-white/5">Últimos 30 días</button>
-                      <button onClick={() => applyPreset('ytd')} className="px-3 py-1.5 rounded-full border border-[var(--border-color)] text-xs hover:bg-white/5">YTD</button>
-                      <button onClick={() => applyPreset('thisMonth')} className="px-3 py-1.5 rounded-full border border-[var(--border-color)] text-xs hover:bg-white/5">Este mes</button>
-                    </div>
-                    <p className="text-[10px] text-[var(--text-secondary-color)]">Los reportes se actualizan automáticamente al cambiar el periodo.</p>
-                  </div>
-                )}
+        <div className="space-y-6 view-enter view-enter-active">
+          <section className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4 animate-pulse">
+            <div className="h-4 w-32 bg-white/10 rounded mb-3" />
+            <div className="h-24 w-full bg-white/10 rounded" />
+          </section>
+          <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4 animate-pulse">
+                <div className="h-3 w-20 bg-white/10 rounded mb-2" />
+                <div className="h-6 w-24 bg-white/10 rounded" />
               </div>
-            </section>
+            ))}
+          </section>
+        </div>
+      ) : serverOk === false ? (
+        <ServerDown onRetry={async () => {
+          setChecking(true);
+          const ok = await pingServer();
+          setServerOk(ok);
+          setChecking(false);
+        }} />
+      ) : (
+        <div className="space-y-6 view-enter view-enter-active">
+          {/* Selector de periodo */}
+          <section className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[var(--text-secondary-color)]">calendar_month</span>
+                <h3 className="font-semibold">Periodo</h3>
+              </div>
+              <div className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--dark-color)] p-1">
+                <button
+                  className={`px-4 py-1.5 rounded-full text-sm transition ${mode === 'month' ? 'bg-[var(--primary-color)] text-white' : 'text-[var(--text-secondary-color)] hover:text-white'}`}
+                  aria-pressed={mode === 'month'}
+                  onClick={() => setMode('month')}
+                >
+                  Mes
+                </button>
+                <button
+                  className={`px-4 py-1.5 rounded-full text-sm transition ${mode === 'range' ? 'bg-[var(--primary-color)] text-white' : 'text-[var(--text-secondary-color)] hover:text-white'}`}
+                  aria-pressed={mode === 'range'}
+                  onClick={() => setMode('range')}
+                >
+                  Rango
+                </button>
+              </div>
 
-            {/* KPIs */}
-            <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {loading ? (
-                timedOutLoading ? (
-                  <ServerDown onRetry={() => {
+              {mode === 'month' ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex items-center justify-center gap-2">
+                    <button className="px-3 py-2 rounded-lg border border-[var(--border-color)] hover:bg-white/5" onClick={() => changeMonth(-1)} aria-label="Mes anterior">
+                      <span className="material-symbols-outlined">chevron_left</span>
+                    </button>
+                    <div className="text-center text-sm">
+                      <p className="font-semibold capitalize">{monthLabel}</p>
+                      <p className="text-[var(--text-secondary-color)]">Reporte mensual</p>
+                    </div>
+                    <button className="px-3 py-2 rounded-lg border border-[var(--border-color)] hover:bg-white/5" onClick={() => changeMonth(1)} aria-label="Mes siguiente">
+                      <span className="material-symbols-outlined">chevron_right</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <input
+                      type="month"
+                      value={month}
+                      onChange={(e) => setMonth(e.target.value)}
+                      className="bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm"
+                      aria-label="Seleccionar mes"
+                    />
+                    <button className="px-3 py-2 rounded-lg border border-[var(--border-color)] hover:bg-white/5 text-sm" onClick={() => setMonth(defaultMonth)}>Este mes</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3 w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-[var(--text-secondary-color)]" htmlFor="fromDate">Desde</label>
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[var(--text-secondary-color)]">event</span>
+                        <input
+                          id="fromDate"
+                          type="date"
+                          value={fromDate}
+                          max={toDate || undefined}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setFromDate(v);
+                            if (toDate && v > toDate) setToDate(v);
+                          }}
+                          className="flex-1 bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-[var(--text-secondary-color)]" htmlFor="toDate">Hasta</label>
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[var(--text-secondary-color)]">event_available</span>
+                        <input
+                          id="toDate"
+                          type="date"
+                          value={toDate}
+                          min={fromDate || undefined}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setToDate(v);
+                            if (fromDate && v < fromDate) setFromDate(v);
+                          }}
+                          className="flex-1 bg-[var(--dark-color)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <button onClick={() => applyPreset('7d')} className="px-3 py-1.5 rounded-full border border-[var(--border-color)] text-xs hover:bg-white/5">Últimos 7 días</button>
+                    <button onClick={() => applyPreset('30d')} className="px-3 py-1.5 rounded-full border border-[var(--border-color)] text-xs hover:bg-white/5">Últimos 30 días</button>
+                    <button onClick={() => applyPreset('ytd')} className="px-3 py-1.5 rounded-full border border-[var(--border-color)] text-xs hover:bg-white/5">YTD</button>
+                    <button onClick={() => applyPreset('thisMonth')} className="px-3 py-1.5 rounded-full border border-[var(--border-color)] text-xs hover:bg-white/5">Este mes</button>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-secondary-color)]">Los reportes se actualizan automáticamente al cambiar el periodo.</p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* KPIs */}
+          <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {loading ? (
+              timedOutLoading ? (
+                <ul className="space-y-2">
+                  <li><ServerDown onRetry={() => {
                     // retrigger current load
                     setLoading(true);
                     setError("");
                     const { from, to } = mode === 'month' ? monthStartEnd(month) : { from: fromDate, to: toDate };
                     setFromDate(from);
                     setToDate(to);
-                  }} />
-                ) : (
+                  }} /></li>
+                </ul>
+              ) : (
                 Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4 animate-pulse">
                     <div className="h-3 w-20 bg-white/10 rounded mb-2" />
                     <div className="h-6 w-24 bg-white/10 rounded" />
                   </div>
                 ))
-                )
-              ) : (
-                <>
-                  <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-                    <p className="text-xs text-[var(--text-secondary-color)]">Ingresos</p>
-                    <p className="mt-1 text-xl font-bold text-[var(--success-color)]">${formatMoney(ingresos)}</p>
-                  </div>
-                  <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-                    <p className="text-xs text-[var(--text-secondary-color)]">Egresos</p>
-                    <p className="mt-1 text-xl font-bold text-[var(--danger-color)]">${formatMoney(egresos)}</p>
-                  </div>
-                  <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-                    <p className="text-xs text-[var(--text-secondary-color)]">Neto</p>
-                    <p className="mt-1 text-xl font-bold">${formatMoney(neto)}</p>
-                  </div>
-                  <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-                    <p className="text-xs text-[var(--text-secondary-color)]">Movimientos</p>
-                    <p className="mt-1 text-xl font-bold">{count}</p>
-                  </div>
-                </>
-              )}
-            </section>
+              )
+            ) : (
+              <>
+                <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+                  <p className="text-xs text-[var(--text-secondary-color)]">Ingresos</p>
+                  <p className="mt-1 text-xl font-bold text-[var(--success-color)]">${formatMoney(ingresos)}</p>
+                </div>
+                <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+                  <p className="text-xs text-[var(--text-secondary-color)]">Egresos</p>
+                  <p className="mt-1 text-xl font-bold text-[var(--danger-color)]">${formatMoney(egresos)}</p>
+                </div>
+                <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+                  <p className="text-xs text-[var(--text-secondary-color)]">Neto</p>
+                  <p className="mt-1 text-xl font-bold">${formatMoney(neto)}</p>
+                </div>
+                <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+                  <p className="text-xs text-[var(--text-secondary-color)]">Movimientos</p>
+                  <p className="mt-1 text-xl font-bold">{count}</p>
+                </div>
+              </>
+            )}
+          </section>
 
-            {/* Evolución diaria */}
-            <section className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined">calendar_month</span> Evolución diaria
-              </h3>
-              {loading ? (
-                timedOutLoading ? (
-                  <ServerDown onRetry={() => {
-                    setLoading(true);
-                    setError("");
-                    const { from, to } = mode === 'month' ? monthStartEnd(month) : { from: fromDate, to: toDate };
-                    setFromDate(from);
-                    setToDate(to);
-                  }} />
-                ) : (
+          {/* Evolución diaria */}
+          <section className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <span className="material-symbols-outlined">calendar_month</span> Evolución diaria
+            </h3>
+            {loading ? (
+              timedOutLoading ? (
+                <ServerDown onRetry={() => {
+                  setLoading(true);
+                  setError("");
+                  const { from, to } = mode === 'month' ? monthStartEnd(month) : { from: fromDate, to: toDate };
+                  setFromDate(from);
+                  setToDate(to);
+                }} />
+              ) : (
                 <ul className="space-y-2 animate-pulse">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <li key={i}>
@@ -505,100 +480,100 @@ export default function Reports() {
                     </li>
                   ))}
                 </ul>
-                )
-              ) : error ? (
-                <p className="text-red-500">{error}</p>
-              ) : daily.rows.length === 0 ? (
-                <p className="text-[var(--text-secondary-color)]">Sin datos para este mes.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {daily.rows.map((d) => {
-                    const dayLabel = new Date(d.day).toLocaleDateString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "short" });
-                    const incPct = Math.min(100, Math.round((d.ingresos / daily.max) * 100));
-                    const outPct = Math.min(100, Math.round((d.egresos / daily.max) * 100));
-                    return (
-                      <li key={d.day} className="">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-[var(--text-secondary-color)]">{dayLabel}</span>
-                          <span className="text-[var(--text-secondary-color)]">Neto: ${formatMoney(d.neto)}</span>
+              )
+            ) : error ? (
+              <p className="text-red-500">{error}</p>
+            ) : daily.rows.length === 0 ? (
+              <p className="text-[var(--text-secondary-color)]">Sin datos para este mes.</p>
+            ) : (
+              <ul className="space-y-2">
+                {daily.rows.map((d) => {
+                  const dayLabel = new Date(d.day).toLocaleDateString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "short" });
+                  const incPct = Math.min(100, Math.round((d.ingresos / daily.max) * 100));
+                  const outPct = Math.min(100, Math.round((d.egresos / daily.max) * 100));
+                  return (
+                    <li key={d.day} className="">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-secondary-color)]">{dayLabel}</span>
+                        <span className="text-[var(--text-secondary-color)]">Neto: ${formatMoney(d.neto)}</span>
+                      </div>
+                      <div className="mt-1 grid grid-cols-2 gap-2 items-center">
+                        <div className="h-2 rounded bg-green-900/30 overflow-hidden" title={`Ingresos $${formatMoney(d.ingresos)}`}>
+                          <div className="h-full bg-[var(--success-color)]" style={{ width: `${incPct}%` }} />
                         </div>
-                        <div className="mt-1 grid grid-cols-2 gap-2 items-center">
-                          <div className="h-2 rounded bg-green-900/30 overflow-hidden" title={`Ingresos $${formatMoney(d.ingresos)}`}>
-                            <div className="h-full bg-[var(--success-color)]" style={{ width: `${incPct}%` }} />
-                          </div>
-                          <div className="h-2 rounded bg-red-900/30 overflow-hidden" title={`Egresos $${formatMoney(d.egresos)}`}>
-                            <div className="h-full bg-[var(--danger-color)]" style={{ width: `${outPct}%` }} />
-                          </div>
+                        <div className="h-2 rounded bg-red-900/30 overflow-hidden" title={`Egresos $${formatMoney(d.egresos)}`}>
+                          <div className="h-full bg-[var(--danger-color)]" style={{ width: `${outPct}%` }} />
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
 
-            {/* KPIs avanzados */}
-            <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {loading ? (
-                timedOutLoading ? (
-                  <ul className="space-y-2">
-                    <li><ServerDown onRetry={() => {
-                      setLoading(true);
-                      setError("");
-                      const { from, to } = mode === 'month' ? monthStartEnd(month) : { from: fromDate, to: toDate };
-                      setFromDate(from);
-                      setToDate(to);
-                    }} /></li>
-                  </ul>
-                ) : (
+          {/* KPIs avanzados */}
+          <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {loading ? (
+              timedOutLoading ? (
+                <ul className="space-y-2">
+                  <li><ServerDown onRetry={() => {
+                    setLoading(true);
+                    setError("");
+                    const { from, to } = mode === 'month' ? monthStartEnd(month) : { from: fromDate, to: toDate };
+                    setFromDate(from);
+                    setToDate(to);
+                  }} /></li>
+                </ul>
+              ) : (
                 Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4 animate-pulse">
                     <div className="h-3 w-24 bg-white/10 rounded mb-2" />
                     <div className="h-6 w-20 bg-white/10 rounded" />
                   </div>
                 ))
-                )
-              ) : (
-                <>
-                  <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-                    <p className="text-xs text-[var(--text-secondary-color)]">Promedio diario ingresos</p>
-                    <MoneySmallDecimals value={extra.avgIncDay} className="mt-1 text-lg font-semibold text-[var(--success-color)] inline-block" />
-                  </div>
-                  <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-                    <p className="text-xs text-[var(--text-secondary-color)]">Promedio diario egresos</p>
-                    <MoneySmallDecimals value={extra.avgOutDay} className="mt-1 text-lg font-semibold text-[var(--danger-color)] inline-block" />
-                  </div>
-                  <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-                    <p className="text-xs text-[var(--text-secondary-color)]">Ratio egresos/ingresos</p>
-                    <p className="mt-1 text-lg font-semibold">{extra.ratioOutInc.toFixed(1)}%</p>
-                  </div>
-                  <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-                    <p className="text-xs text-[var(--text-secondary-color)]">Ticket promedio</p>
-                    <MoneySmallDecimals value={extra.ticketProm} className="mt-1 text-lg font-semibold inline-block" />
-                  </div>
-                </>
-              )}
-            </section>
+              )
+            ) : (
+              <>
+                <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+                  <p className="text-xs text-[var(--text-secondary-color)]">Promedio diario ingresos</p>
+                  <MoneySmallDecimals value={extra.avgIncDay} className="mt-1 text-lg font-semibold text-[var(--success-color)] inline-block" />
+                </div>
+                <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+                  <p className="text-xs text-[var(--text-secondary-color)]">Promedio diario egresos</p>
+                  <MoneySmallDecimals value={extra.avgOutDay} className="mt-1 text-lg font-semibold text-[var(--danger-color)] inline-block" />
+                </div>
+                <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+                  <p className="text-xs text-[var(--text-secondary-color)]">Ratio egresos/ingresos</p>
+                  <p className="mt-1 text-lg font-semibold">{extra.ratioOutInc.toFixed(1)}%</p>
+                </div>
+                <div className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+                  <p className="text-xs text-[var(--text-secondary-color)]">Ticket promedio</p>
+                  <MoneySmallDecimals value={extra.ticketProm} className="mt-1 text-lg font-semibold inline-block" />
+                </div>
+              </>
+            )}
+          </section>
 
-            {/* Desglose por categoría */}
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[{key: 'ingresos', title: 'Ingresos por categoría', color: 'var(--success-color)'}, {key: 'egresos', title: 'Egresos por categoría', color: 'var(--danger-color)'}].map(({key, title, color}) => {
-                const list = byCat[key] || [];
-                return (
-                  <div key={key} className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <span className="material-symbols-outlined">pie_chart</span> {title}
-                    </h3>
-                    {loading ? (
-                      timedOutLoading ? (
-                        <ul className="space-y-2"><li><ServerDown onRetry={() => {
-                          setLoading(true);
-                          setError("");
-                          const { from, to } = mode === 'month' ? monthStartEnd(month) : { from: fromDate, to: toDate };
-                          setFromDate(from);
-                          setToDate(to);
-                        }} /></li></ul>
-                      ) : (
+          {/* Desglose por categoría */}
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[{ key: 'ingresos', title: 'Ingresos por categoría', color: 'var(--success-color)' }, { key: 'egresos', title: 'Egresos por categoría', color: 'var(--danger-color)' }].map(({ key, title, color }) => {
+              const list = byCat[key] || [];
+              return (
+                <div key={key} className="bg-[var(--card-color)] rounded-lg border border-[var(--border-color)] p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <span className="material-symbols-outlined">pie_chart</span> {title}
+                  </h3>
+                  {loading ? (
+                    timedOutLoading ? (
+                      <ul className="space-y-2"><li><ServerDown onRetry={() => {
+                        setLoading(true);
+                        setError("");
+                        const { from, to } = mode === 'month' ? monthStartEnd(month) : { from: fromDate, to: toDate };
+                        setFromDate(from);
+                        setToDate(to);
+                      }} /></li></ul>
+                    ) : (
                       <ul className="space-y-2 animate-pulse">
                         {Array.from({ length: 6 }).map((_, i) => (
                           <li key={i}>
@@ -607,43 +582,35 @@ export default function Reports() {
                           </li>
                         ))}
                       </ul>
-                      )
-                    ) : list.length === 0 ? (
-                      <p className="text-[var(--text-secondary-color)]">Sin datos para este periodo.</p>
-                    ) : (
-                      <ul className="space-y-3">
-                        {list.slice(0, 6).map((c) => (
-                          <li key={c.categoria_id}>
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="truncate pr-2">{c.nombre}</span>
-                              <span className="text-[var(--text-secondary-color)]">{c.pct.toFixed(1)}% · {c.count} mov</span>
-                            </div>
-                            <div className="h-2 rounded bg-white/10 overflow-hidden" title={`$${formatMoney(c.total)}`}>
-                              <div className="h-full" style={{ width: `${Math.min(100, c.pct)}%`, background: color }} />
-                            </div>
-                            <div className="mt-1 text-[10px] text-[var(--text-secondary-color)]">${formatMoney(c.total)}</div>
-                          </li>
-                        ))}
-                        {list.length > 6 && (
-                          <li className="text-[10px] text-[var(--text-secondary-color)]">+ {list.length - 6} categorías más</li>
-                        )}
-                      </ul>
-                    )}
-                  </div>
-                );
-              })}
-            </section>
-          </main>
-          <BottomNav
-            onHome={() => navigate('/dashboard')}
-            onMovements={() => navigate('/movements')}
-            onWallet={() => navigate('/wallet')}
-            onReports={() => navigate('/reports')}
-            onCreateMovement={() => navigate('/new')}
-            active="reports"
-          />
-        </>
+                    )
+                  ) : list.length === 0 ? (
+                    <p className="text-[var(--text-secondary-color)]">Sin datos para este periodo.</p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {list.slice(0, 6).map((c) => (
+                        <li key={c.categoria_id}>
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="truncate pr-2">{c.nombre}</span>
+                            <span className="text-[var(--text-secondary-color)]">{c.pct.toFixed(1)}% · {c.count} mov</span>
+                          </div>
+                          <div className="h-2 rounded bg-white/10 overflow-hidden" title={`$${formatMoney(c.total)}`}>
+                            <div className="h-full" style={{ width: `${Math.min(100, c.pct)}%`, background: color }} />
+                          </div>
+                          <div className="mt-1 text-[10px] text-[var(--text-secondary-color)]">${formatMoney(c.total)}</div>
+                        </li>
+                      ))}
+                      {list.length > 6 && (
+                        <li className="text-[10px] text-[var(--text-secondary-color)]">+ {list.length - 6} categorías más</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </section>
+        </div>
       )}
-    </div>
+    </Layout>
   );
 }
+
