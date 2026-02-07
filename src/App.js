@@ -18,6 +18,7 @@ import BankWithdrawal from './views/BankWithdrawal';
 import Gastos from './views/Gastos';
 import Pedidos from './views/Pedidos';
 import Payroll from './views/Payroll';
+import Billing from './views/Billing';
 import { RoleProvider, useRole } from './context/RoleContext';
 import HomeFallback from './views/HomeFallback';
 
@@ -48,6 +49,7 @@ function App() {
         <Route path="/gastos" element={<RequireAuth><Gastos /></RequireAuth>} />
         <Route path="/pedidos" element={<RequireAuth><Pedidos /></RequireAuth>} />
         <Route path="/payroll" element={<RequireAuth><Payroll /></RequireAuth>} />
+        <Route path="/billing" element={<RequireAuth><Billing /></RequireAuth>} />
         <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
 
         {/* Admin Routes */}

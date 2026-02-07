@@ -29,6 +29,7 @@ export default function Sidebar({ open, onClose }) {
         { id: 'pedidos', label: "Pedidos", icon: "shopping_cart", path: "/pedidos" },
         { id: 'wallet', label: "Cartera", icon: "account_balance_wallet", path: "/wallet" },
         { id: 'payroll', label: "Nómina", icon: "payments", path: "/payroll" },
+        { id: 'billing', label: "Facturación", icon: "request_quote", path: "/billing" },
         { id: 'reports', label: "Reportes", icon: "bar_chart", path: "/reports" },
     ];
 

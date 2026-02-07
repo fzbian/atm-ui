@@ -255,8 +255,18 @@ export default function Payroll() {
                     {/* Config Modal */}
                     {showConfig && config && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                            <div className="bg-[var(--card-color)] border border-[var(--border-color)] rounded-2xl p-6 max-w-lg w-full">
-                                <h3 className="text-xl font-bold mb-4">Configuración Global</h3>
+                            <div className="bg-[var(--card-color)] border border-[var(--border-color)] rounded-2xl p-6 max-w-3xl w-full shadow-2xl">
+                                <div className="flex flex-col gap-2 mb-4 md:flex-row md:items-center md:justify-between">
+                                    <div>
+                                        <h3 className="text-xl font-bold">Configuración Global</h3>
+                                        <p className="text-xs text-[var(--text-secondary-color)]">Ajustes que afectan a todos los cálculos de nómina y documentos generados.</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] bg-white/5 px-3 py-2 rounded-lg border border-white/5 text-[var(--text-secondary-color)]">
+                                        <span className="material-symbols-outlined text-sm text-[var(--primary-color)]">shield_lock</span>
+                                        Solo administradores
+                                    </div>
+                                </div>
+
                                 <ConfigForm config={config} onClose={() => setShowConfig(false)} onUpdate={() => { loadConfig(); }} />
                             </div>
                         </div>
@@ -463,11 +473,19 @@ function ConfigForm({ config, onClose, onUpdate }) {
     const [loading, setLoading] = useState(false);
     const [editingField, setEditingField] = useState(null); // 'auxilio', 'dominical', etc.
     const [tempValue, setTempValue] = useState('');
+    const { notify } = useNotifications();
 
     const handleSaveField = async (field) => {
         setLoading(true);
         try {
-            const val = ['company_name', 'nit'].includes(field) ? tempValue : Number(tempValue);
+            const isTextField = ['company_name', 'nit'].includes(field);
+            const val = isTextField ? tempValue : Number(tempValue);
+
+            if (!isTextField && (Number.isNaN(val) || val < 0)) {
+                notify({ type: 'error', message: 'Ingresa un número válido mayor o igual a 0' });
+                return;
+            }
+
             const newConfig = { ...formData, [field]: val };
             const res = await apiFetch('/api/nomina/config', {
                 method: 'POST',
@@ -477,52 +495,56 @@ function ConfigForm({ config, onClose, onUpdate }) {
             if (res.ok) {
                 setFormData(newConfig);
                 setEditingField(null);
+                notify({ type: 'success', message: 'Configuración guardada' });
                 if (onUpdate) onUpdate(); // Refresh the list without closing if needed
             }
         } catch (e) { console.error('Error updating config', e); }
         finally { setLoading(false); }
     };
 
-    const renderField = (label, field, icon, isCurrency = true) => {
+    const renderField = (label, field, icon, options = {}) => {
+        const { isCurrency = true, helper, suffix, placeholder } = options;
         const isEditing = editingField === field;
         const value = formData[field];
         const isText = ['company_name', 'nit'].includes(field);
 
         return (
-            <div className={`p-4 rounded-2xl border transition-all flex justify-between items-center group ${isEditing ? 'bg-blue-500/10 border-blue-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
-                <div className="flex flex-col flex-1">
-                    <label className="text-[10px] uppercase font-bold text-[var(--text-secondary-color)] tracking-widest mb-1">{label}</label>
+            <div className={`p-4 rounded-2xl border transition-all flex justify-between items-start gap-3 group ${isEditing ? 'bg-blue-500/10 border-blue-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
+                <div className="flex flex-col flex-1 gap-1">
+                    <label className="text-[10px] uppercase font-bold text-[var(--text-secondary-color)] tracking-[0.2em]">{label}</label>
                     {isEditing ? (
-                        <div className="flex items-center gap-1 animate-in fade-in slide-in-from-left-2 duration-200 max-w-full">
+                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200 max-w-full">
                             <input
                                 type={isText ? "text" : "number"}
                                 step={isCurrency ? "1" : "0.1"}
+                                placeholder={placeholder}
                                 value={tempValue}
                                 onChange={e => setTempValue(e.target.value)}
-                                className={`bg-[var(--dark-color)] border border-[var(--primary-color)] font-mono text-base px-2 py-1 rounded-lg outline-none shadow-lg ${isText ? 'w-full max-w-[200px]' : (isCurrency ? 'w-24' : 'w-16')}`}
+                                className={`bg-[var(--dark-color)] border border-[var(--primary-color)] font-mono text-base px-3 py-2 rounded-lg outline-none shadow-lg ${isText ? 'w-full' : 'w-32'}`}
                                 autoFocus
                             />
-                            {!isCurrency && !isText && <span className="text-xs font-bold">%</span>}
-                            <button onClick={() => handleSaveField(field)} disabled={loading} className="bg-[var(--success-color)] text-black p-1 rounded-lg hover:brightness-110 active:scale-95 transition-all">
-                                <span className="material-symbols-outlined text-xs font-bold">check</span>
+                            {!isCurrency && !isText && <span className="text-xs font-bold">{suffix || '%'}</span>}
+                            <button onClick={() => handleSaveField(field)} disabled={loading} className="bg-[var(--success-color)] text-black px-3 py-2 rounded-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50">
+                                <span className="material-symbols-outlined text-sm font-bold">check</span>
                             </button>
-                            <button onClick={() => setEditingField(null)} className="bg-white/10 text-white p-1 rounded-lg hover:bg-white/20 active:scale-95 transition-all">
-                                <span className="material-symbols-outlined text-xs">close</span>
+                            <button onClick={() => setEditingField(null)} className="bg-white/10 text-white px-3 py-2 rounded-lg hover:bg-white/20 active:scale-95 transition-all">
+                                <span className="material-symbols-outlined text-sm">close</span>
                             </button>
                         </div>
                     ) : (
                         <div
                             className="flex items-center gap-2 cursor-pointer group/val"
-                            onClick={() => { setEditingField(field); setTempValue(value || ''); }}
+                            onClick={() => { setEditingField(field); setTempValue(value ?? ''); }}
                         >
                             <span className={`font-mono text-xl font-bold tracking-tight ${isCurrency ? 'text-white' : (isText ? 'text-white uppercase' : 'text-blue-400')}`}>
-                                {isText ? (value || 'SIN DEFINIR') : (isCurrency ? formatCLP(value) : `${value}%`)}
+                                {isText ? (value || 'SIN DEFINIR') : (isCurrency ? formatCLP(value) : `${value}${suffix || '%'}`)}
                             </span>
                             <span className="material-symbols-outlined text-sm text-[var(--primary-color)] opacity-0 group-hover/val:opacity-100 transition-opacity">edit</span>
                         </div>
                     )}
+                    {helper && <p className="text-[11px] text-[var(--text-secondary-color)] leading-tight">{helper}</p>}
                 </div>
-                <div className={`p-3 rounded-xl transition-all ${isEditing ? 'bg-blue-500/20 text-blue-400' : 'bg-white/5 text-[var(--text-secondary-color)] opacity-50'}`}>
+                <div className={`p-3 rounded-xl transition-all shrink-0 ${isEditing ? 'bg-blue-500/20 text-blue-400' : 'bg-white/5 text-[var(--text-secondary-color)] opacity-70'}`}>
                     <span className="material-symbols-outlined text-xl">{icon}</span>
                 </div>
             </div>
@@ -530,23 +552,56 @@ function ConfigForm({ config, onClose, onUpdate }) {
     };
 
     return (
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
-            {renderField('Nombre Empresa', 'company_name', 'business', false)}
-            {renderField('NIT Empresa', 'nit', 'badge', false)}
-            <div className="h-px bg-white/5 my-4" />
-            {renderField('Auxilio Transporte', 'auxilio_transporte', 'local_shipping')}
-            {renderField('Dominical Semestre 1 (Ene-Jun)', 'valor_dominical_s1', 'calendar_today')}
-            {renderField('Dominical Semestre 2 (Jul-Dic)', 'valor_dominical_s2', 'calendar_today')}
-            {renderField('Valor Hora Madrugón', 'valor_madrugon', 'wb_sunny')}
-            {renderField('Porcentaje Salud', 'porcentaje_salud', 'ecg_heart', false)}
-            {renderField('Porcentaje Pensión', 'porcentaje_pension', 'savings', false)}
+        <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="p-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 text-sm text-blue-100 flex gap-3 items-start">
+                <span className="material-symbols-outlined text-lg">tips_and_updates</span>
+                <div>
+                    <p className="font-semibold text-blue-100">Consejo rápido</p>
+                    <p className="text-blue-100/80">Los cambios se aplican de inmediato y afectan cálculos futuros. Revisa los valores antes de cerrar.</p>
+                </div>
+            </div>
 
-            <button
-                onClick={onClose}
-                className="w-full mt-4 py-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all"
-            >
-                Cerrar Configuración
-            </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {renderField('Nombre Empresa', 'company_name', 'business', { isCurrency: false, helper: 'Se muestra en los PDFs y listados de nómina.', placeholder: 'Empresa S.A.' })}
+                {renderField('NIT Empresa', 'nit', 'badge', { isCurrency: false, helper: 'Incluye dígito de verificación si aplica.', placeholder: '901234567' })}
+            </div>
+
+            <div className="space-y-3">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary-color)] font-bold">Asignaciones fijas</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderField('Auxilio Transporte', 'auxilio_transporte', 'local_shipping', { helper: 'Se suma automáticamente a los colaboradores elegibles.' })}
+                    {renderField('Valor Hora Madrugón', 'valor_madrugon', 'wb_sunny', { helper: 'Usado para recargos de madrugada.' })}
+                </div>
+            </div>
+
+            <div className="space-y-3">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary-color)] font-bold">Dominicales</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderField('Semestre 1 (Ene-Jun)', 'valor_dominical_s1', 'calendar_today', { helper: 'Valor fijo para turnos dominicales del primer semestre.' })}
+                    {renderField('Semestre 2 (Jul-Dic)', 'valor_dominical_s2', 'calendar_today', { helper: 'Valor fijo para turnos dominicales del segundo semestre.' })}
+                </div>
+            </div>
+
+            <div className="space-y-3">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary-color)] font-bold">Aportes legales</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderField('Porcentaje Salud', 'porcentaje_salud', 'ecg_heart', { isCurrency: false, helper: 'Porcentaje que se descuenta al colaborador.', suffix: '%', placeholder: '4' })}
+                    {renderField('Porcentaje Pensión', 'porcentaje_pension', 'savings', { isCurrency: false, helper: 'Porcentaje destinado a pensión.', suffix: '%', placeholder: '4' })}
+                </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between pt-2 border-t border-white/5">
+                <div className="text-xs text-[var(--text-secondary-color)] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-sm text-[var(--primary-color)]">info</span>
+                    Cambios guardados al confirmar cada campo.
+                </div>
+                <button
+                    onClick={onClose}
+                    className="md:w-auto w-full px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all"
+                >
+                    Cerrar Configuración
+                </button>
+            </div>
         </div>
     );
 }
